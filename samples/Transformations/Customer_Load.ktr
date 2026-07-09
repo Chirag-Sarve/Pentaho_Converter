@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>Customer_Load</name>
+    <description>Sample customer load transformation</description>
+    <parameters>
+      <parameter>
+        <name>BATCH_DATE</name>
+        <default_value>2026-01-01</default_value>
+      </parameter>
+    </parameters>
+  </info>
+  <order>
+    <hop><from>Table input</from><to>Filter rows</to><enabled>Y</enabled></hop>
+    <hop><from>Filter rows</from><to>Select values</to><enabled>Y</enabled></hop>
+    <hop><from>Select values</from><to>Table output</to><enabled>Y</enabled></hop>
+  </order>
+  <step>
+    <name>Table input</name>
+    <type>TableInput</type>
+    <connection>MyDB</connection>
+    <sql>SELECT customer_id, customer_name, status FROM customers</sql>
+  </step>
+  <step>
+    <name>Filter rows</name>
+    <type>FilterRows</type>
+    <compare_value>status = 'ACTIVE'</compare_value>
+  </step>
+  <step>
+    <name>Select values</name>
+    <type>SelectValues</type>
+    <fields>
+      <field><name>customer_id</name><type>Integer</type></field>
+      <field><name>customer_name</name><type>String</type></field>
+    </fields>
+  </step>
+  <step>
+    <name>Table output</name>
+    <type>TableOutput</type>
+    <schema>analytics</schema>
+    <table>dim_customer</table>
+  </step>
+</transformation>

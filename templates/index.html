@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pentaho to PySpark Converter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #161822;
+      --surface-2: #1e2030;
+      --border: #2a2d3e;
+      --border-focus: #6366f1;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-hover: #818cf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .header-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--primary), #a855f7);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.25rem; font-weight: 700; color: #fff;
+    }
+
+    .header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .header p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem;
+    }
+
+    .panels {
+      display: grid;
+      grid-template-columns: 300px 1fr 1fr;
+      gap: 1.5rem;
+      height: clamp(400px, calc(100vh - 160px), calc(100vh - 160px));
+    }
+
+    @media (max-width: 1280px) {
+      .panels { grid-template-columns: 260px 1fr 1fr; }
+    }
+
+    @media (max-width: 1024px) {
+      .panels { grid-template-columns: 1fr; height: auto; }
+    }
+
+    /* --- Target settings sidebar --- */
+    .settings-panel { overflow: hidden; }
+    .settings-panel .panel-body {
+      gap: 0.85rem; display: flex; flex-direction: column;
+      overflow-y: auto; padding: 1rem;
+    }
+    .settings-field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .settings-field label {
+      font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+      text-transform: none; letter-spacing: 0;
+    }
+    .settings-field input[type="text"],
+    .settings-field input[type="password"],
+    .settings-field select {
+      width: 100%; padding: 0.5rem 0.6rem; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 0.8rem;
+    }
+    .settings-field input[readonly] { opacity: 0.75; cursor: not-allowed; }
+    .settings-checkbox { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text); }
+    .conn-pill {
+      font-size: 0.66rem; font-weight: 700; padding: 0.22rem 0.55rem;
+      border-radius: 999px; letter-spacing: 0.03em;
+    }
+    .conn-pill.ok { background: rgba(74,222,128,0.15); color: #16a34a; border: 1px solid rgba(74,222,128,0.4); }
+    .conn-pill.off { background: rgba(148,163,184,0.15); color: #64748b; border: 1px solid rgba(148,163,184,0.4); }
+    .conn-pill.err { background: rgba(248,113,113,0.15); color: #dc2626; border: 1px solid rgba(248,113,113,0.4); }
+    .settings-msg { font-size: 0.72rem; color: var(--text-muted); min-height: 1rem; }
+    .settings-msg.err { color: var(--error); }
+    .settings-msg.ok { color: var(--success); }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .panel-header h2 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .panel-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .tab {
+      padding: 0.6rem 1.25rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    textarea#xml-paste {
+      flex: 1;
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: none;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      resize: none;
+      outline: none;
+      line-height: 1.7;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    textarea#xml-paste::placeholder {
+      color: #475569;
+    }
+
+    .upload-zone {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .upload-zone.dragover {
+      background: rgba(99, 102, 241, 0.08);
+    }
+
+    .upload-icon {
+      width: 64px; height: 64px;
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .upload-zone:hover .upload-icon,
+    .upload-zone.dragover .upload-icon {
+      border-color: var(--primary);
+    }
+
+    .upload-icon svg { width: 28px; height: 28px; stroke: var(--text-muted); }
+
+    .upload-zone p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .upload-zone .browse-link {
+      color: var(--primary);
+      font-weight: 500;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .file-info {
+      display: none;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: rgba(99, 102, 241, 0.08);
+      border-radius: 8px;
+      margin-top: 1rem;
+      max-width: 360px;
+    }
+
+    .file-info.visible { display: flex; }
+
+    .file-info span {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-info .remove-file {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .file-info .remove-file:hover { color: var(--error); }
+
+    .action-bar {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: #475569; }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+    .btn-success:hover { background: #16a34a; }
+
+    .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    .spinner.visible { display: inline-block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .output-code {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--bg);
+      min-height: 0;
+    }
+
+    .output-code pre {
+      margin: 0;
+      padding: 1rem;
+      font-size: 0.8rem;
+      line-height: 1.7;
+    }
+
+    .output-code code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .placeholder-msg {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #475569;
+      font-size: 0.875rem;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .summary-bar {
+      display: none;
+      padding: 0.6rem 1rem;
+      background: var(--surface-2);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .summary-bar.visible { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; align-items: center; }
+
+    .summary-item {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .summary-item strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .summary-item.warn strong { color: var(--warning); }
+
+    .error-banner {
+      display: none;
+      padding: 0.75rem 1rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      margin: 1rem;
+      color: var(--error);
+      font-size: 0.8rem;
+    }
+
+    .error-banner.visible { display: block; }
+
+    /* ── Analysis Panel ── */
+    .analysis-section {
+      display: none;
+      margin-top: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .analysis-section.visible { display: block; }
+
+    .analysis-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: var(--surface-2);
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .analysis-toggle:hover { background: #252838; }
+    .analysis-toggle .chevron {
+      transition: transform 0.25s;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .analysis-toggle.open .chevron { transform: rotate(180deg); }
+
+    .analysis-body {
+      display: none;
+      padding: 1.25rem;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .analysis-body.open { display: block; }
+
+    /* Gauge */
+    .gauge-row {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .gauge-container {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      flex-shrink: 0;
+    }
+    .gauge-svg { transform: rotate(-90deg); }
+    .gauge-bg {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 8;
+    }
+    .gauge-fill {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.8s ease, stroke 0.4s;
+    }
+    .gauge-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .gauge-label .score {
+      font-size: 1.6rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .gauge-label .unit {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .gauge-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .gauge-stat {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .gauge-stat .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .gauge-stat strong { color: var(--text); font-weight: 600; }
+
+    /* Section headers */
+    .analysis-heading {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin: 1.25rem 0 0.6rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Transformation table */
+    .tx-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+    .tx-table th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.7rem;
+    }
+    .tx-table td {
+      padding: 0.45rem 0.75rem;
+      border-top: 1px solid var(--border);
+      color: var(--text);
+    }
+    .tx-table tr:hover td { background: rgba(99,102,241,0.04); }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 9999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .badge-green  { background: rgba(34,197,94,0.15);  color: #4ade80; }
+    .badge-yellow { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .badge-red    { background: rgba(239,68,68,0.15);  color: #f87171; }
+    .badge-gray   { background: rgba(148,163,184,0.12); color: #94a3b8; }
+
+    /* Expression diff */
+    .diff-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+    }
+    .diff-table th {
+      text-align: left;
+      padding: 0.5rem 0.6rem;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+    }
+    .diff-table td {
+      padding: 0.4rem 0.6rem;
+      border-top: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .diff-table .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--text);
+      word-break: break-all;
+    }
+    .diff-table .orig { color: #f87171; }
+    .diff-table .conv { color: #4ade80; }
+
+    /* Warnings list */
+    .warn-list { list-style: none; }
+    .warn-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.4rem 0;
+      font-size: 0.78rem;
+      color: var(--text);
+      border-bottom: 1px solid rgba(42,45,62,0.5);
+    }
+    .warn-icon {
+      flex-shrink: 0;
+      width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      font-size: 0.65rem;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+    .warn-icon.error   { background: rgba(239,68,68,0.2);  color: #f87171; }
+    .warn-icon.warning { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .warn-icon.info    { background: rgba(99,102,241,0.2);  color: #818cf8; }
+    .warn-loc {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    .analysis-loading {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .analysis-loading .spinner-sm {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* --- Pentaho conversion UI --- */
+    .status-bar {
+      display: none;
+      padding: 0.6rem 1rem;
+      background: rgba(99, 102, 241, 0.08);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .status-bar.visible { display: block; }
+    .status-bar strong { color: var(--text); }
+
+    .progress-bar-wrap {
+      display: none;
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .progress-bar-wrap.visible { display: block; }
+    .progress-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary), #a855f7);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .progress-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.35rem;
+    }
+
+    .logs-panel {
+      display: none;
+      margin-top: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .logs-panel.visible { display: block; }
+    .logs-header {
+      padding: 0.75rem 1rem;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+    .logs-body {
+      max-height: 240px;
+      overflow-y: auto;
+      padding: 0.75rem 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      line-height: 1.8;
+      color: var(--text-muted);
+    }
+    .log-line { padding: 0.1rem 0; }
+    .log-line.error { color: var(--error); }
+    .log-line.warn { color: var(--warning); }
+    .log-line.ok { color: var(--success); }
+
+    .file-list {
+      display: none;
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .file-list.visible { display: block; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      transition: background 0.15s;
+    }
+    .file-item:hover { background: rgba(99,102,241,0.08); color: var(--text); }
+    .file-item.active { background: rgba(99,102,241,0.15); color: var(--primary); font-weight: 500; }
+    .file-item svg { width: 14px; height: 14px; flex-shrink: 0; stroke: currentColor; fill: none; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-icon">Py</div>
+    <div>
+      <h1>Pentaho to PySpark Converter</h1>
+      <p>Upload a Pentaho project ZIP to generate Databricks-ready PySpark code</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="panels">
+
+      <!-- LEFT: Target settings sidebar -->
+      <div class="panel settings-panel">
+        <div class="panel-header">
+          <h2>Target settings</h2>
+          <span class="conn-pill off" id="conn-pill">NOT CONNECTED</span>
+        </div>
+        <div class="panel-body">
+          <div class="settings-field">
+            <label>Unity Catalog</label>
+            <input type="text" id="set-catalog" placeholder="main">
+          </div>
+          <div class="settings-field">
+            <label>Schema</label>
+            <input type="text" id="set-schema" placeholder="default">
+          </div>
+          <div class="settings-field">
+            <label>Workspace URL</label>
+            <input type="text" id="set-host" placeholder="https://adb-....azuredatabricks.net">
+          </div>
+          <div class="settings-field">
+            <label>Personal access token</label>
+            <input type="password" id="set-token" placeholder="dapi..." autocomplete="off">
+          </div>
+          <div class="settings-field">
+            <label>Storage account</label>
+            <input type="text" id="set-storage" placeholder="(optional)">
+          </div>
+          <div class="settings-field">
+            <label>Container</label>
+            <input type="text" id="set-container" placeholder="(optional)">
+          </div>
+          <div class="settings-field">
+            <label>UC path prefix</label>
+            <input type="text" id="set-prefix" placeholder="(optional)">
+          </div>
+          <div class="settings-field">
+            <label>Notebook folder</label>
+            <input type="text" id="set-nbdir" placeholder="/Shared/pentaho_converted">
+          </div>
+          <label class="settings-checkbox">
+            <input type="checkbox" id="set-managed"> Managed tables (no LOCATION)
+          </label>
+          <div class="settings-field">
+            <label>Target format</label>
+            <select id="set-format">
+              <option value="delta">delta</option>
+              <option value="parquet">parquet</option>
+              <option value="csv">csv</option>
+            </select>
+          </div>
+          <div class="action-bar" style="flex-direction:column; gap:0.5rem;">
+            <button class="btn btn-ghost" id="test-conn-btn" style="width:100%;">Test connection</button>
+            <button class="btn btn-success" id="push-btn" style="width:100%;" disabled>Push to Databricks</button>
+          </div>
+          <div class="settings-msg" id="settings-msg"></div>
+          <p style="font-size:0.68rem;color:var(--text-muted);line-height:1.4;margin-top:0.25rem;">
+            Enter your Databricks workspace URL and personal access token above. Credentials are sent only when you test or push — they are not stored on the server.
+          </p>
+        </div>
+      </div>
+
+      <!-- MIDDLE: Input Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Pentaho Project</h2>
+        </div>
+        <div class="panel-body">
+          <div class="status-bar" id="status-bar">
+            Status: <strong id="status-text">Ready</strong>
+          </div>
+          <div class="progress-bar-wrap" id="progress-wrap">
+            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="progress-label" id="progress-label">Uploading...</div>
+          </div>
+
+          <div class="upload-zone" id="upload-zone">
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <p>Drag &amp; drop your Pentaho project ZIP here, or <span class="browse-link">browse</span></p>
+            <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #334155;">
+              Upload a ZIP containing .kjb and .ktr files (max 50 MB)
+            </p>
+            <div class="file-info" id="file-info">
+              <span id="file-name"></span>
+              <button class="remove-file" id="remove-file" title="Remove file">&times;</button>
+            </div>
+          </div>
+          <input type="file" id="file-input" accept=".zip,.ZIP" hidden>
+
+          <div class="action-bar">
+            <button class="btn btn-primary" id="convert-btn">
+              <span class="spinner" id="spinner"></span>
+              Convert to PySpark
+            </button>
+            <button class="btn btn-ghost" id="clear-btn">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Output Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Generated PySpark</h2>
+          <div style="display:flex; gap:0.5rem;">
+            <button class="btn btn-ghost" id="copy-btn" style="display:none;">Copy</button>
+            <button class="btn btn-ghost" id="download-btn" style="display:none;">Download .py</button>
+            <button class="btn btn-success" id="download-zip-btn" style="display:none;">Download ZIP</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="error-banner" id="error-banner"></div>
+          <div class="file-list" id="file-list"></div>
+          <div class="placeholder-msg" id="placeholder">
+            Generated PySpark files will appear here after conversion.
+          </div>
+          <div class="output-code" id="output-area" style="display:none;">
+            <pre><code class="language-python" id="code-block"></code></pre>
+          </div>
+          <div class="summary-bar" id="summary-bar">
+            <span class="summary-item">Jobs: <strong id="stat-jobs">0</strong></span>
+            <span class="summary-item">Transformations: <strong id="stat-transformations">0</strong></span>
+            <span class="summary-item">Files: <strong id="stat-files">0</strong></span>
+            <span class="summary-item" style="color:var(--success)">Converted: <strong id="stat-converted">0</strong></span>
+            <span class="summary-item warn">Approximated: <strong id="stat-approximated">0</strong></span>
+            <span class="summary-item" style="color:var(--error)">Skipped: <strong id="stat-skipped">0</strong></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Conversion Logs -->
+    <div class="logs-panel" id="logs-panel">
+      <div class="logs-header">Conversion Logs</div>
+      <div class="logs-body" id="logs-body"></div>
+    </div>
+
+    <!-- Analysis Section (collapsible, below panels) -->
+    <div class="analysis-section" id="analysis-section">
+      <button class="analysis-toggle" id="analysis-toggle">
+        <span>Output Analysis</span>
+        <span class="chevron">&#9660;</span>
+      </button>
+      <div class="analysis-body" id="analysis-body">
+        <div class="analysis-loading" id="analysis-loading">
+          <div class="spinner-sm"></div>
+          Analyzing output...
+        </div>
+        <div id="analysis-content" style="display:none;">
+
+          <!-- Gauge + summary stats -->
+          <div class="gauge-row">
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 120 120" width="120" height="120">
+                <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+                <circle class="gauge-fill" id="gauge-arc" cx="60" cy="60" r="50"
+                  stroke-dasharray="314.16" stroke-dashoffset="314.16"></circle>
+              </svg>
+              <div class="gauge-label">
+                <span class="score" id="gauge-score">0</span>
+                <span class="unit">semantic accuracy</span>
+              </div>
+            </div>
+            <div class="gauge-stats">
+              <div class="gauge-stat">Coverage: <strong id="a-coverage">0%</strong></div>
+              <div class="gauge-stat">Semantic accuracy: <strong id="a-semantic">0%</strong></div>
+              <div class="gauge-stat"><span class="dot" style="background:#4ade80"></span> Fully converted: <strong id="a-converted">0</strong></div>
+              <div class="gauge-stat"><span class="dot" style="background:#fbbf24"></span> Approximated: <strong id="a-approx">0</strong></div>
+              <div class="gauge-stat"><span class="dot" style="background:#f87171"></span> Unsupported: <strong id="a-unsup">0</strong></div>
+              <div class="gauge-stat"><span class="dot" style="background:#94a3b8"></span> Missing in output: <strong id="a-missing">0</strong></div>
+              <div class="gauge-stat" id="a-syntax-row">Syntax: <strong id="a-syntax">Valid</strong></div>
+              <div class="gauge-stat">TODOs: <strong id="a-todos">0</strong></div>
+            </div>
+          </div>
+
+          <!-- Transformation table -->
+          <div class="analysis-heading">Step Breakdown</div>
+          <div style="overflow-x:auto;">
+            <table class="tx-table">
+              <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Score</th><th>Has Logic</th><th>Detail</th></tr></thead>
+              <tbody id="tx-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- Expression diff -->
+          <div class="analysis-heading" id="expr-heading" style="display:none;">Expression Comparison</div>
+          <div style="overflow-x:auto;">
+            <table class="diff-table" id="expr-table" style="display:none;">
+              <thead><tr><th>Step</th><th>Field / Attribute</th><th>Original (Pentaho)</th><th>Converted (PySpark)</th><th>Status</th></tr></thead>
+              <tbody id="expr-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- Warnings -->
+          <div class="analysis-heading" id="warn-heading" style="display:none;">Warnings &amp; Errors</div>
+          <ul class="warn-list" id="warn-list"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function() {
+  const fileInput       = document.getElementById('file-input');
+  const uploadZone      = document.getElementById('upload-zone');
+  const fileInfo        = document.getElementById('file-info');
+  const fileName        = document.getElementById('file-name');
+  const removeFile      = document.getElementById('remove-file');
+  const convertBtn      = document.getElementById('convert-btn');
+  const clearBtn        = document.getElementById('clear-btn');
+  const spinner         = document.getElementById('spinner');
+  const copyBtn         = document.getElementById('copy-btn');
+  const downloadBtn     = document.getElementById('download-btn');
+  const downloadZipBtn  = document.getElementById('download-zip-btn');
+  const placeholder     = document.getElementById('placeholder');
+  const outputArea      = document.getElementById('output-area');
+  const codeBlock       = document.getElementById('code-block');
+  const errorBanner     = document.getElementById('error-banner');
+  const summaryBar      = document.getElementById('summary-bar');
+  const statusBar       = document.getElementById('status-bar');
+  const statusText      = document.getElementById('status-text');
+  const progressWrap    = document.getElementById('progress-wrap');
+  const progressFill    = document.getElementById('progress-fill');
+  const progressLabel   = document.getElementById('progress-label');
+  const logsPanel       = document.getElementById('logs-panel');
+  const logsBody        = document.getElementById('logs-body');
+  const fileList        = document.getElementById('file-list');
+
+  // --- Databricks target settings (entered in UI, sent with each request) ---
+  const connPill     = document.getElementById('conn-pill');
+  const testConnBtn  = document.getElementById('test-conn-btn');
+  const pushBtn      = document.getElementById('push-btn');
+  const settingsMsg  = document.getElementById('settings-msg');
+  const setCatalog   = document.getElementById('set-catalog');
+  const setSchema    = document.getElementById('set-schema');
+  const setHost      = document.getElementById('set-host');
+  const setToken     = document.getElementById('set-token');
+  const setStorage   = document.getElementById('set-storage');
+  const setContainer = document.getElementById('set-container');
+  const setPrefix    = document.getElementById('set-prefix');
+  const setNbDir     = document.getElementById('set-nbdir');
+  const setManaged   = document.getElementById('set-managed');
+  const setFormat    = document.getElementById('set-format');
+  let lastConvertedName = 'pentaho_converted';
+
+  function databricksPayload(extra) {
+    return Object.assign({
+      host: setHost.value.trim(),
+      token: setToken.value.trim(),
+      notebook_dir: setNbDir.value.trim() || '/Shared/pentaho_converted',
+      catalog: setCatalog.value.trim(),
+      schema: setSchema.value.trim(),
+    }, extra || {});
+  }
+
+  function setConnPill(state, text) {
+    connPill.className = 'conn-pill ' + state;
+    connPill.textContent = text;
+  }
+
+  async function loadDatabricksConfig() {
+    try {
+      const resp = await fetch('/api/databricks/config');
+      if (!resp.ok) return;
+      const c = await resp.json();
+      setCatalog.value   = c.catalog || 'main';
+      setSchema.value    = c.schema || 'default';
+      setStorage.value   = c.storage_account || '';
+      setContainer.value = c.container || '';
+      setPrefix.value    = c.uc_path_prefix || '';
+      setNbDir.value     = c.notebook_dir || '/Shared/pentaho_converted';
+      setManaged.checked = !!c.managed_tables;
+      if (c.target_format) setFormat.value = c.target_format;
+      setConnPill('off', 'NOT CONNECTED');
+    } catch (e) { /* non-fatal */ }
+  }
+
+  testConnBtn.addEventListener('click', async () => {
+    if (!setHost.value.trim()) {
+      settingsMsg.className = 'settings-msg err';
+      settingsMsg.textContent = 'Enter your Databricks workspace URL.';
+      return;
+    }
+    if (!setToken.value.trim()) {
+      settingsMsg.className = 'settings-msg err';
+      settingsMsg.textContent = 'Enter your personal access token.';
+      return;
+    }
+    testConnBtn.disabled = true;
+    settingsMsg.className = 'settings-msg';
+    settingsMsg.textContent = 'Testing connection...';
+    try {
+      const resp = await fetch('/api/databricks/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(databricksPayload()),
+      });
+      const r = await resp.json();
+      if (r.ok) {
+        setConnPill('ok', 'CONNECTED');
+        settingsMsg.className = 'settings-msg ok';
+      } else {
+        setConnPill('err', 'NOT CONNECTED');
+        settingsMsg.className = 'settings-msg err';
+      }
+      settingsMsg.textContent = r.message || '';
+    } catch (e) {
+      setConnPill('err', 'NOT CONNECTED');
+      settingsMsg.className = 'settings-msg err';
+      settingsMsg.textContent = 'Network error: ' + e.message;
+    } finally {
+      testConnBtn.disabled = false;
+    }
+  });
+
+  pushBtn.addEventListener('click', async () => {
+    if (!Object.keys(generatedFiles).length && !generatedCode) return;
+    if (!setHost.value.trim() || !setToken.value.trim()) {
+      settingsMsg.className = 'settings-msg err';
+      settingsMsg.textContent = 'Enter workspace URL and personal access token before pushing.';
+      return;
+    }
+    pushBtn.disabled = true;
+    settingsMsg.className = 'settings-msg';
+    settingsMsg.textContent = 'Pushing to Databricks (splitting into notebook cells)...';
+    try {
+      const payload = databricksPayload({
+        files: Object.keys(generatedFiles).length ? generatedFiles : undefined,
+        code: generatedCode,
+        name: lastConvertedName,
+      });
+      const resp = await fetch('/api/databricks/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const r = await resp.json();
+      settingsMsg.className = 'settings-msg ' + (r.ok ? 'ok' : 'err');
+      if (r.ok) {
+        const detail = (r.paths && r.paths.length > 1)
+          ? r.paths.join(', ')
+          : (r.path || r.message);
+        settingsMsg.textContent = 'Imported: ' + detail;
+        if (r.errors && r.errors.length) {
+          settingsMsg.textContent += ' Warnings: ' + r.errors.join('; ');
+        }
+        setConnPill('ok', 'CONNECTED');
+      } else {
+        settingsMsg.textContent = r.message || 'Push failed.';
+      }
+    } catch (e) {
+      settingsMsg.className = 'settings-msg err';
+      settingsMsg.textContent = 'Network error: ' + e.message;
+    } finally {
+      pushBtn.disabled = false;
+    }
+  });
+
+  loadDatabricksConfig();
+
+  let selectedFile = null;
+  let generatedCode = '';
+  let generatedFiles = {};
+  let zipBase64 = '';
+  let activeFile = '';
+
+  // --- Analysis panel elements ---
+  const analysisSection  = document.getElementById('analysis-section');
+  const analysisToggle   = document.getElementById('analysis-toggle');
+  const analysisBody     = document.getElementById('analysis-body');
+  const analysisLoading  = document.getElementById('analysis-loading');
+  const analysisContent  = document.getElementById('analysis-content');
+
+  // --- Status / Progress helpers ---
+  function setStatus(text, state) {
+    statusBar.classList.add('visible');
+    statusText.textContent = text;
+    statusText.style.color = state === 'error' ? 'var(--error)'
+      : state === 'success' ? 'var(--success)' : 'var(--text)';
+  }
+
+  function setProgress(pct, label) {
+    progressWrap.classList.add('visible');
+    progressFill.style.width = pct + '%';
+    progressLabel.textContent = label || '';
+  }
+
+  function hideProgress() {
+    progressWrap.classList.remove('visible');
+    progressFill.style.width = '0%';
+  }
+
+  function showLogs(logs) {
+    logsPanel.classList.add('visible');
+    logsBody.innerHTML = '';
+    (logs || []).forEach(line => {
+      const div = document.createElement('div');
+      div.className = 'log-line'
+        + (line.startsWith('ERROR:') ? ' error' : '')
+        + (line.startsWith('WARNING:') ? ' warn' : '')
+        + (line.includes('completed') || line.includes('success') ? ' ok' : '');
+      div.textContent = line;
+      logsBody.appendChild(div);
+    });
+    logsBody.scrollTop = logsBody.scrollHeight;
+  }
+
+  function renderFileList(files, defaultFile) {
+    fileList.innerHTML = '';
+    const names = Object.keys(files).sort();
+    if (!names.length) {
+      fileList.classList.remove('visible');
+      return;
+    }
+    fileList.classList.add('visible');
+    names.forEach(name => {
+      const item = document.createElement('div');
+      item.className = 'file-item' + (name === defaultFile ? ' active' : '');
+      item.innerHTML = '<svg viewBox="0 0 24 24" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+        + '<span>' + esc(name) + '</span>';
+      item.addEventListener('click', () => selectFile(name));
+      fileList.appendChild(item);
+    });
+  }
+
+  function selectFile(name) {
+    activeFile = name;
+    generatedCode = generatedFiles[name] || '';
+    fileList.querySelectorAll('.file-item').forEach(el => {
+      el.classList.toggle('active', el.querySelector('span').textContent === name);
+    });
+    codeBlock.textContent = generatedCode;
+    hljs.highlightElement(codeBlock);
+  }
+
+  // --- File Upload ---
+  uploadZone.addEventListener('click', (e) => {
+    if (e.target === removeFile || e.target.closest('.remove-file')) return;
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) handleFile(fileInput.files[0]);
+  });
+
+  ['dragover', 'dragenter'].forEach(evt => {
+    uploadZone.addEventListener(evt, e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    uploadZone.addEventListener(evt, e => { e.preventDefault(); uploadZone.classList.remove('dragover'); });
+  });
+
+  uploadZone.addEventListener('drop', e => {
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+
+  function handleFile(file) {
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      showError('Please upload a .zip file containing your Pentaho project.');
+      return;
+    }
+    selectedFile = file;
+    fileName.textContent = file.name + ' (' + formatBytes(file.size) + ')';
+    fileInfo.classList.add('visible');
+    setStatus('ZIP selected — ready to convert', 'ready');
+  }
+
+  removeFile.addEventListener('click', e => {
+    e.stopPropagation();
+    selectedFile = null;
+    fileInput.value = '';
+    fileInfo.classList.remove('visible');
+  });
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  // --- Clear ---
+  clearBtn.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    fileInfo.classList.remove('visible');
+    statusBar.classList.remove('visible');
+    hideProgress();
+    logsPanel.classList.remove('visible');
+    hideOutput();
+  });
+
+  // --- Convert ---
+  convertBtn.addEventListener('click', async () => {
+    hideOutput();
+    convertBtn.disabled = true;
+    spinner.classList.add('visible');
+    setStatus('Uploading ZIP...', 'ready');
+    setProgress(10, 'Uploading project ZIP...');
+
+    try {
+      if (!selectedFile) {
+        showError('No file selected. Upload a Pentaho project ZIP file.');
+        setStatus('No file selected', 'error');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      setProgress(30, 'Extracting and scanning project...');
+      setStatus('Processing...', 'ready');
+
+      const resp = await fetch('/api/convert', { method: 'POST', body: formData });
+      setProgress(70, 'Generating PySpark code...');
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        if (data.logs) showLogs(data.logs);
+        showError(data.error || 'Conversion failed.');
+        setStatus('Conversion failed', 'error');
+        return;
+      }
+
+      setProgress(100, 'Conversion complete');
+      generatedFiles = data.files || {};
+      zipBase64 = data.zip_base64 || '';
+      activeFile = data.main_workflow || Object.keys(generatedFiles)[0] || '';
+      generatedCode = generatedFiles[activeFile] || data.code || '';
+      lastConvertedName = selectedFile.name.replace(/\.zip$/i, '') || 'pentaho_converted';
+
+      showOutput(generatedCode, data.summary);
+      renderFileList(generatedFiles, activeFile);
+      showLogs(data.logs);
+      setStatus('Conversion finished — ' + Object.keys(generatedFiles).length + ' file(s) generated', 'success');
+      pushBtn.disabled = false;
+      showAnalysis(data.analysis);
+
+    } catch (err) {
+      showError('Network error: ' + err.message);
+      setStatus('Network error', 'error');
+    } finally {
+      convertBtn.disabled = false;
+      spinner.classList.remove('visible');
+      setTimeout(hideProgress, 1500);
+    }
+  });
+
+  // --- Output ---
+  function showOutput(code, summary) {
+    errorBanner.classList.remove('visible');
+    placeholder.style.display = 'none';
+    outputArea.style.display = 'block';
+    codeBlock.textContent = code;
+    hljs.highlightElement(codeBlock);
+    copyBtn.style.display = 'inline-flex';
+    downloadBtn.style.display = 'inline-flex';
+    downloadZipBtn.style.display = 'inline-flex';
+
+    document.getElementById('stat-jobs').textContent = summary.jobs_found || 0;
+    document.getElementById('stat-transformations').textContent = summary.transformations_found || 0;
+    document.getElementById('stat-files').textContent = summary.files_generated || 0;
+    document.getElementById('stat-converted').textContent = summary.steps_converted || 0;
+    document.getElementById('stat-approximated').textContent = summary.steps_approximated || 0;
+    document.getElementById('stat-skipped').textContent = summary.steps_skipped || 0;
+    summaryBar.classList.add('visible');
+  }
+
+  function hideOutput() {
+    errorBanner.classList.remove('visible');
+    placeholder.style.display = 'flex';
+    outputArea.style.display = 'none';
+    copyBtn.style.display = 'none';
+    downloadBtn.style.display = 'none';
+    downloadZipBtn.style.display = 'none';
+    summaryBar.classList.remove('visible');
+    fileList.classList.remove('visible');
+    generatedCode = '';
+    generatedFiles = {};
+    zipBase64 = '';
+    activeFile = '';
+    if (pushBtn) pushBtn.disabled = true;
+    analysisSection.classList.remove('visible');
+  }
+
+  function showError(msg) {
+    errorBanner.textContent = msg;
+    errorBanner.classList.add('visible');
+    placeholder.style.display = 'none';
+    outputArea.style.display = 'none';
+  }
+
+  // --- Copy ---
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(generatedCode);
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+    } catch { /* fallback */ }
+  });
+
+  // --- Download single file ---
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([generatedCode], { type: 'text/x-python' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (activeFile || 'converted_pyspark.py').replace(/\//g, '_');
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // --- Download all as ZIP ---
+  downloadZipBtn.addEventListener('click', () => {
+    if (zipBase64) {
+      const raw = atob(zipBase64);
+      const arr = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      const blob = new Blob([arr], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = lastConvertedName + '_pyspark.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  });
+
+  // --- Analysis toggle ---
+  analysisToggle.addEventListener('click', () => {
+    analysisToggle.classList.toggle('open');
+    analysisBody.classList.toggle('open');
+  });
+
+  // --- Show analysis (derived from the same conversion run; deterministic) ---
+  function showAnalysis(analysis) {
+    analysisSection.classList.add('visible');
+    analysisContent.style.display = 'none';
+    if (!analysisBody.classList.contains('open')) {
+      analysisToggle.classList.add('open');
+      analysisBody.classList.add('open');
+    }
+    analysisLoading.style.display = 'none';
+    if (!analysis) {
+      console.error('No analysis returned from conversion.');
+      return;
+    }
+    renderAnalysis(analysis);
+  }
+
+  function gaugeColor(score) {
+    if (score >= 80) return '#4ade80';
+    if (score >= 50) return '#fbbf24';
+    return '#f87171';
+  }
+
+  function renderAnalysis(r) {
+    analysisContent.style.display = 'block';
+
+    // Gauge
+    const circumference = 314.16;
+    const offset = circumference - (circumference * r.accuracy_score / 100);
+    const arc = document.getElementById('gauge-arc');
+    arc.style.stroke = gaugeColor(r.accuracy_score);
+    arc.setAttribute('stroke-dashoffset', offset);
+    document.getElementById('gauge-score').textContent = r.accuracy_score + '%';
+    document.getElementById('gauge-score').style.color = gaugeColor(r.accuracy_score);
+    document.getElementById('a-coverage').textContent = (r.coverage_score ?? r.coverage_percent ?? 0) + '%';
+    document.getElementById('a-semantic').textContent = (r.semantic_accuracy_percent ?? r.accuracy_score ?? 0) + '%';
+
+    document.getElementById('a-converted').textContent = r.fully_converted;
+    document.getElementById('a-approx').textContent = r.approximated;
+    document.getElementById('a-unsup').textContent = r.unsupported;
+    document.getElementById('a-missing').textContent = r.missing_in_output;
+    const syntaxEl = document.getElementById('a-syntax');
+    syntaxEl.textContent = r.syntax_valid ? 'Valid' : 'Invalid';
+    syntaxEl.style.color = r.syntax_valid ? '#4ade80' : '#f87171';
+    document.getElementById('a-todos').textContent = r.todo_count;
+
+    // Transformation table
+    const tbody = document.getElementById('tx-tbody');
+    tbody.innerHTML = '';
+    if (r.transformations.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:1rem;">No steps found in Pentaho transformations</td></tr>';
+    }
+    const statusBadgeFor = (status) => {
+      if (status === 'converted') return '<span class="badge badge-green">Converted</span>';
+      if (status === 'partial' || status === 'partially_supported' || status === 'approximated')
+        return '<span class="badge badge-yellow">Partial</span>';
+      if (status === 'manual_required') return '<span class="badge badge-yellow">Manual</span>';
+      if (status === 'failed' || status === 'unsupported') return '<span class="badge badge-red">Failed</span>';
+      return '<span class="badge badge-gray">Unknown</span>';
+    };
+    r.transformations.forEach(tx => {
+      const statusBadge = statusBadgeFor(tx.status);
+      const logicIcon = tx.has_logic ? '<span style="color:#4ade80">Yes</span>' : '<span style="color:#f87171">No</span>';
+      const score = tx.semantic_score != null ? tx.semantic_score + '%' : '—';
+      const detailParts = [tx.detail, ...(tx.warnings || []), ...(tx.errors || [])].filter(Boolean);
+      tbody.innerHTML += `<tr>
+        <td style="font-weight:500">${esc(tx.name)}</td>
+        <td>${esc(tx.type)}</td>
+        <td>${statusBadge}</td>
+        <td>${score}</td>
+        <td>${logicIcon}</td>
+        <td style="color:var(--text-muted);font-size:0.72rem">${esc(detailParts.join('; ') || '—')}</td>
+      </tr>`;
+    });
+
+    // Expression diff
+    const exprHeading = document.getElementById('expr-heading');
+    const exprTable = document.getElementById('expr-table');
+    const exprTbody = document.getElementById('expr-tbody');
+    exprTbody.innerHTML = '';
+    if (r.expression_diffs.length > 0) {
+      exprHeading.style.display = '';
+      exprTable.style.display = '';
+      r.expression_diffs.forEach(d => {
+        const statusBadge = d.status === 'converted'
+          ? '<span class="badge badge-green">OK</span>'
+          : d.status === 'todo'
+            ? '<span class="badge badge-yellow">TODO</span>'
+            : '<span class="badge badge-red">Missing</span>';
+        exprTbody.innerHTML += `<tr>
+          <td style="font-weight:500">${esc(d.transformation)}</td>
+          <td>${esc(d.field_or_attr)}</td>
+          <td class="mono orig">${esc(d.original)}</td>
+          <td class="mono conv">${esc(d.converted)}</td>
+          <td>${statusBadge}</td>
+        </tr>`;
+      });
+    } else {
+      exprHeading.style.display = 'none';
+      exprTable.style.display = 'none';
+    }
+
+    // Warnings
+    const warnHeading = document.getElementById('warn-heading');
+    const warnList = document.getElementById('warn-list');
+    warnList.innerHTML = '';
+    if (r.warnings.length > 0) {
+      warnHeading.style.display = '';
+      r.warnings.forEach(w => {
+        const iconClass = w.severity;
+        const iconChar = w.severity === 'error' ? '!' : w.severity === 'warning' ? '!' : 'i';
+        warnList.innerHTML += `<li class="warn-item">
+          <span class="warn-icon ${iconClass}">${iconChar}</span>
+          <span>${esc(w.message)}</span>
+          <span class="warn-loc">${esc(w.location || '')}</span>
+        </li>`;
+      });
+    } else {
+      warnHeading.style.display = 'none';
+    }
+  }
+
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+})();
+</script>
+
+</body>
+</html>

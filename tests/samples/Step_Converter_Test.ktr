@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info><name>Step_Converter_Test</name></info>
+  <order>
+    <hop><from>Generate Rows</from><to>Add constants</to><enabled>Y</enabled></hop>
+    <hop><from>Add constants</from><to>Calculator</to><enabled>Y</enabled></hop>
+    <hop><from>Calculator</from><to>String ops</to><enabled>Y</enabled></hop>
+    <hop><from>String ops</from><to>Filter rows</to><enabled>Y</enabled></hop>
+  </order>
+  <step>
+    <name>Generate Rows</name>
+    <type>DataGrid</type>
+    <fields>
+      <field><name>id</name><type>Integer</type></field>
+      <field><name>name</name><type>String</type></field>
+      <field><name>age</name><type>Integer</type></field>
+    </fields>
+    <data>
+      <line><item>1</item><item>John</item><item>20</item></line>
+      <line><item>2</item><item>David</item><item>30</item></line>
+    </data>
+  </step>
+  <step>
+    <name>Add constants</name>
+    <type>Constant</type>
+    <fields>
+      <field><name>Country</name><type>String</type><value>India</value></field>
+    </fields>
+  </step>
+  <step>
+    <name>Calculator</name>
+    <type>Calculator</type>
+    <calculation>
+      <field_name>age_plus_one</field_name>
+      <calc_type>ADD</calc_type>
+      <field_a>age</field_a>
+      <field_b>id</field_b>
+      <value_type>Integer</value_type>
+    </calculation>
+  </step>
+  <step>
+    <name>String ops</name>
+    <type>StringOperations</type>
+    <fields>
+      <field>
+        <in_stream_name>name</in_stream_name>
+        <out_stream_name>name_upper</out_stream_name>
+        <trim_type>both</trim_type>
+        <lower_upper>upper</lower_upper>
+      </field>
+    </fields>
+  </step>
+  <step>
+    <name>Filter rows</name>
+    <type>FilterRows</type>
+    <compare>
+      <condition>
+        <negated>N</negated>
+        <conditions>
+          <condition>
+            <negated>N</negated>
+            <leftvalue>age</leftvalue>
+            <function>&gt;</function>
+            <value><type>Integer</type><text>18</text></value>
+          </condition>
+          <condition>
+            <negated>N</negated>
+            <operator>AND</operator>
+            <leftvalue>Country</leftvalue>
+            <function>=</function>
+            <value><type>String</type><text>India</text></value>
+          </condition>
+        </conditions>
+      </condition>
+    </compare>
+  </step>
+</transformation>

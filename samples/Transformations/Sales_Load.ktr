@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>Sales_Load</name>
+  </info>
+  <order>
+    <hop><from>CSV file input</from><to>Sort rows</to><enabled>Y</enabled></hop>
+    <hop><from>Sort rows</from><to>Group by</to><enabled>Y</enabled></hop>
+  </order>
+  <step>
+    <name>CSV file input</name>
+    <type>CsvInput</type>
+    <filename>/data/sales.csv</filename>
+    <separator>,</separator>
+    <header>Y</header>
+  </step>
+  <step>
+    <name>Sort rows</name>
+    <type>SortRows</type>
+    <fields>
+      <field><name>sale_date</name><type>Date</type></field>
+    </fields>
+  </step>
+  <step>
+    <name>Group by</name>
+    <type>GroupBy</type>
+    <fields>
+      <field><name>region</name><type>String</type></field>
+    </fields>
+  </step>
+</transformation>
