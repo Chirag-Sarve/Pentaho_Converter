@@ -127,6 +127,19 @@ def convert_pentaho_project(
             f"Semantic accuracy: {report.semantic_accuracy_percent:.1f}%"
         )
 
+        from .project_metadata import build_project_metadata
+
+        inventory, lineage = build_project_metadata(
+            scan,
+            jobs,
+            transformations,
+            stats,
+            main_workflow=result.main_workflow,
+            primary_job_name=primary_job_name,
+        )
+        result.project_inventory = inventory
+        result.lineage = lineage
+
     except ZipExtractionError as exc:
         logs.append(f"ERROR: {exc}")
         stats.warnings.append(str(exc))

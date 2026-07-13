@@ -127,3 +127,5 @@ class ConversionResult:
     logs: list[str] = field(default_factory=list)
     stats: ConversionStats = field(default_factory=ConversionStats)
     main_workflow: str | None = None
+    project_inventory: list[dict] = field(default_factory=list)
+    lineage: dict = field(default_factory=dict)

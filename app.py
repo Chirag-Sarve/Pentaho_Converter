@@ -91,6 +91,8 @@ def convert():
             "semantic_accuracy_percent": round(result.stats.semantic_accuracy_percent, 1),
         },
         "analysis": _build_analysis(result),
+        "project_inventory": result.project_inventory,
+        "lineage": result.lineage,
     })
 
 

@@ -3,29 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pentaho to PySpark Converter</title>
+  <title>Pentaho → Databricks Converter</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0f1117;
-      --surface: #161822;
-      --surface-2: #1e2030;
-      --border: #2a2d3e;
-      --border-focus: #6366f1;
-      --text: #e2e8f0;
-      --text-muted: #94a3b8;
-      --primary: #6366f1;
-      --primary-hover: #818cf8;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --error: #ef4444;
+      --bg: #0F172A;
+      --sidebar-bg: #162132;
+      --surface: #1E293B;
+      --surface-2: #243044;
+      --border: #334155;
+      --border-focus: #3B82F6;
+      --text: #E2E8F0;
+      --text-muted: #94A3B8;
+      --primary: #3B82F6;
+      --primary-hover: #2563EB;
+      --success: #22C55E;
+      --warning: #EAB308;
+      --error: #EF4444;
+      --info: #38BDF8;
       --radius: 12px;
+      --sidebar-w: 250px;
+      --header-h: 72px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.35);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
     }
 
     body {
@@ -34,61 +41,1148 @@
       color: var(--text);
       min-height: 100vh;
       line-height: 1.6;
+      overflow: hidden;
     }
 
-    .header {
-      background: var(--surface);
+    /* ── App shell ── */
+    .app-shell {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    .sidebar-title {
+      padding: 1rem 1rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
       border-bottom: 1px solid var(--border);
-      padding: 1rem 2rem;
+      line-height: 1.35;
+    }
+
+    .logo-card, .logo-icon, .logo-text, .logo-route { display: none; }
+
+    .nav-group-label {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748B;
+      padding: 0.85rem 1rem 0.35rem;
+    }
+
+    .sidebar-brand, .sidebar-project { display: none; }
+
+    .sidebar-nav {
+      padding: 0 0.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      flex: 1;
+    }
+
+    .nav-item {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.6rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: left;
+      width: 100%;
     }
 
-    .header-icon {
-      width: 40px; height: 40px;
-      background: linear-gradient(135deg, var(--primary), #a855f7);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.25rem; font-weight: 700; color: #fff;
+    .nav-item svg {
+      width: 16px; height: 16px;
+      stroke: currentColor;
+      fill: none;
+      flex-shrink: 0;
+      opacity: 0.85;
     }
 
-    .header h1 {
-      font-size: 1.25rem;
+    .nav-item:hover { background: rgba(59,130,246,0.08); color: var(--text); }
+    .nav-item.active {
+      background: var(--primary);
+      color: #fff;
       font-weight: 600;
     }
+    .nav-item.active svg { opacity: 1; }
 
-    .header p {
-      font-size: 0.8rem;
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .top-header {
+      height: var(--header-h);
+      flex-shrink: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      gap: 1.5rem;
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-width: 0;
+    }
+
+    .header-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .header-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    .header-subtitle.hidden { display: none; }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .hdr-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
       color: var(--text-muted);
     }
 
-    .container {
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 1.5rem 2rem;
+    .hdr-badge.zip { color: var(--text); }
+    .hdr-badge.scanned {
+      border-color: rgba(34,197,94,0.4);
+      background: rgba(34,197,94,0.1);
+      color: var(--success);
+    }
+    .hdr-badge.files { color: var(--text-muted); }
+
+    .header-breadcrumb, .header-search { display: none; }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
     }
 
-    .panels {
+    .hdr-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: inherit;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .hdr-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; }
+
+    .hdr-btn-ghost {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .hdr-btn-ghost:hover { border-color: #475569; background: var(--surface-2); }
+
+    .hdr-btn-primary {
+      background: var(--primary);
+      border: 1px solid var(--primary);
+      color: #fff;
+    }
+    .hdr-btn-primary:hover { background: var(--primary-hover); }
+
+    .hdr-btn-danger {
+      background: transparent;
+      border: 1px solid rgba(239,68,68,0.4);
+      color: var(--error);
+      padding: 0.45rem 0.55rem;
+    }
+    .hdr-btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+    .icon-btn {
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .icon-btn:hover { color: var(--text); border-color: #475569; background: var(--surface-2); }
+    .icon-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
+
+    .profile-avatar { display: none !important; }
+
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.5rem 0;
+      background: var(--bg);
+    }
+
+    /* ── Inventory (screenshot style) ── */
+    .inv-card { margin-bottom: 1rem; }
+
+    .inv-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .inv-card-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .inv-card-title svg { width: 16px; height: 16px; stroke: var(--text-muted); fill: none; }
+
+    .filter-chips {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .filter-chip {
+      padding: 0.28rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-chip:hover { color: var(--text); }
+    .filter-chip.active { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+    .filter-chip.chip-low.active { color: var(--success); border-color: rgba(34,197,94,0.4); }
+    .filter-chip.chip-med.active { color: var(--warning); border-color: rgba(234,179,8,0.4); }
+    .filter-chip.chip-high.active { color: var(--error); border-color: rgba(239,68,68,0.4); }
+
+    .inv-table { font-size: 0.78rem; }
+    .inv-table th {
+      font-size: 0.62rem;
+      padding: 0.6rem 1rem;
+      letter-spacing: 0.06em;
+    }
+    .inv-table td { padding: 0.65rem 1rem; }
+    .inv-table .job-name { font-weight: 500; color: var(--text); }
+
+    .complexity-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      border: 1px solid;
+    }
+    .complexity-pill.low { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.1); color: var(--success); }
+    .complexity-pill.medium { border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.1); color: var(--warning); }
+    .complexity-pill.high { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.1); color: var(--error); }
+
+    .status-pill {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      border: 1px solid;
+      text-transform: lowercase;
+    }
+    .status-pill.converted { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.1); color: var(--info); }
+    .status-pill.needs_review { border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.1); color: var(--warning); }
+    .status-pill.not_started, .status-pill.pending { border-color: var(--border); background: var(--surface-2); color: var(--text-muted); }
+
+    .review-icon {
+      width: 22px; height: 22px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+    }
+    .review-icon.ok { background: rgba(34,197,94,0.15); color: var(--success); }
+    .review-icon.warn { background: rgba(234,179,8,0.15); color: var(--warning); }
+    .review-icon.err { background: rgba(239,68,68,0.15); color: var(--error); }
+    .review-icon svg { width: 12px; height: 12px; stroke: currentColor; fill: none; }
+
+    .btn-open {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.32rem 0.7rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      font-family: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-open:hover { border-color: #475569; background: var(--surface); }
+    .btn-open svg { width: 12px; height: 12px; stroke: currentColor; fill: none; }
+
+    /* ── Job drawer ── */
+    .drawer-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+    }
+    .drawer-overlay.visible { display: block; }
+
+    .job-drawer {
+      position: fixed;
+      top: 0; right: 0;
+      width: 420px;
+      max-width: 100vw;
+      height: 100vh;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      z-index: 201;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+    }
+    .job-drawer.open { transform: translateX(0); }
+
+    .drawer-header {
+      padding: 1rem 1.15rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .drawer-header h3 { font-size: 0.95rem; font-weight: 700; color: var(--text); word-break: break-word; }
+    .drawer-close {
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 0;
+    }
+    .drawer-close:hover { color: var(--text); }
+
+    .drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .drawer-metric {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+    }
+    .drawer-metric span:first-child { color: var(--text-muted); }
+    .drawer-metric strong { color: var(--text); font-weight: 600; }
+
+    .drawer-section h4 {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+    .drawer-section ul { list-style: none; font-size: 0.75rem; color: var(--text-muted); }
+    .drawer-section li { padding: 0.2rem 0; }
+
+    .drawer-actions {
+      padding: 0.85rem 1.15rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    /* ── Footer removed ── */
+    .app-footer { display: none !important; }
+
+    .inv-stats-row { display: none; }
+    .jobs-section { display: none !important; }
+    .inv-search-bar { display: none; }
+
+    .upload-card .panel-header h2 { font-size: 0.88rem; text-transform: none; letter-spacing: 0; color: var(--text); }
+    .upload-card .panel-header { flex-direction: column; align-items: flex-start; gap: 0.15rem; padding: 1rem 1.1rem 0.5rem; background: transparent; border: none; }
+    .upload-subtitle { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; }
+
+    .page-validation { width: 100%; max-width: none; }
+    .main-content:has(#page-validation.active) {
+      padding: 1rem 1.25rem 0;
+    }
+    .page-validation .analysis-section.visible {
+      display: block !important;
+      margin-top: 0;
+      width: 100%;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+    }
+    .page-validation .analysis-body.open {
+      display: block !important;
+      max-height: none !important;
+      overflow: visible !important;
+      padding: 1.25rem;
+    }
+    .page-validation .analysis-toggle { display: none; }
+    .page-validation #validation-empty { margin: 0; }
+    .page-validation .tx-table,
+    .page-validation .diff-table { width: 100%; }
+
+    /* Validation page — accuracy cards */
+    .validation-accuracy-row {
       display: grid;
-      grid-template-columns: 300px 1fr 1fr;
-      gap: 1.5rem;
-      height: clamp(400px, calc(100vh - 160px), calc(100vh - 160px));
+      grid-template-columns: 40% 60%;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+      align-items: stretch;
     }
-
-    @media (max-width: 1280px) {
-      .panels { grid-template-columns: 260px 1fr 1fr; }
-    }
-
     @media (max-width: 1024px) {
-      .panels { grid-template-columns: 1fr; height: auto; }
+      .validation-accuracy-row { grid-template-columns: 1fr; }
+    }
+    .validation-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 260px;
+    }
+    .validation-card-header {
+      padding: 0.75rem 1.25rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.02em;
+    }
+    .validation-card-body {
+      padding: 1.25rem 1.5rem;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .validation-gauge-card .validation-card-body {
+      padding: 1.5rem 1.25rem;
+    }
+    .validation-gauge-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      width: 100%;
+      text-align: center;
+    }
+    .validation-gauge-stack .validation-gauge-score {
+      font-size: 2.1rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text);
+    }
+    .validation-gauge-ring {
+      position: relative;
+      width: 190px;
+      height: 190px;
+      flex-shrink: 0;
+    }
+    .validation-gauge-ring .validation-gauge-score {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .validation-gauge-ring .gauge-svg {
+      width: 190px;
+      height: 190px;
+      transform: rotate(-90deg);
+    }
+    .validation-gauge-ring .gauge-bg,
+    .validation-gauge-ring .gauge-fill {
+      stroke-width: 9;
+    }
+    .validation-gauge-caption {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      margin-top: 0.15rem;
+    }
+    .validation-summary-card .validation-card-body {
+      justify-content: center;
+      align-items: stretch;
+      padding: 1.35rem 1.5rem;
+      width: 100%;
+    }
+    .validation-summary-list {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .validation-metric-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 1rem;
+      width: 100%;
+    }
+    .validation-metric-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-width: 0;
+    }
+    .validation-metric-label .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .validation-metric-value {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .validation-section-heading {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin: 0 0 0.75rem;
+      padding: 0 0.25rem;
+    }
+    .validation-table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+    .validation-table-scroll {
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
     }
 
-    /* --- Target settings sidebar --- */
-    .settings-panel { overflow: hidden; }
-    .settings-panel .panel-body {
-      gap: 0.85rem; display: flex; flex-direction: column;
-      overflow-y: auto; padding: 1rem;
+    #global-search { display: none; }
+    #header-step { display: none; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .container { max-width: none; margin: 0; padding: 0; }
+
+  /* ── Upload page layout ── */
+    .upload-layout {
+      display: grid;
+      grid-template-columns: 7fr 3fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .upload-layout { grid-template-columns: 1fr; }
+    }
+
+    .upload-methods {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      padding: 0.75rem 1rem 0;
+    }
+
+    .method-card {
+      padding: 0.65rem 0.5rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .method-card svg { width: 20px; height: 20px; stroke: currentColor; fill: none; }
+    .method-card:hover { border-color: #475569; color: var(--text); }
+    .method-card.active {
+      border-color: var(--primary);
+      background: rgba(59,130,246,0.08);
+      color: var(--primary);
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+
+    .upload-card .panel-body { min-height: 320px; }
+
+    .paste-pane {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .paste-pane.active { display: flex; }
+
+    .upload-pane {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .upload-pane.active { display: flex; }
+
+  /* ── Summary card (right column) ── */
+    .summary-card .panel-body { padding: 1rem; gap: 0.85rem; }
+
+    .sc-gauge-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 0.25rem;
+    }
+
+    .sc-gauge-wrap .gauge-container { width: 100px; height: 100px; }
+    .sc-gauge-wrap .gauge-label .score { font-size: 1.35rem; }
+
+    .metric-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .metric-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .metric-header strong { color: var(--text); font-weight: 600; }
+
+    .metric-track {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .metric-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s ease, background 0.3s;
+      width: 0%;
+    }
+
+    .sc-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+      margin-top: 0.25rem;
+    }
+
+    .sc-stat {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--border);
+    }
+
+    .summary-card .panel-header {
+      padding: 0.85rem 1rem;
+      background: transparent;
+      border-bottom: 1px solid var(--border);
+    }
+    .summary-card .panel-header h2 {
+      font-size: 0.82rem;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--text);
+    }
+
+    .sc-stat .sc-stat-val {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .sc-stat .sc-stat-lbl {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    .sc-warnings-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 8px;
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.25);
+      font-size: 0.75rem;
+      color: var(--warning);
+      width: 100%;
+      justify-content: center;
+    }
+
+  /* ── Jobs table ── */
+    .jobs-section {
+      display: none;
+      margin-top: 1.25rem;
+    }
+
+    .jobs-section.visible { display: block; }
+
+    .jobs-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .jobs-toolbar h3 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .jobs-toolbar-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: 0.55rem 0.85rem;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      padding: 0.55rem 0.85rem;
+      border-top: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: middle;
+    }
+
+    .data-table tr:hover td { background: rgba(99,102,241,0.04); }
+
+    .row-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+
+    .btn-xs {
+      padding: 0.28rem 0.55rem;
+      font-size: 0.68rem;
+      border-radius: 6px;
+    }
+
+    .job-progress {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 0.3rem;
+      width: 80px;
+    }
+
+    .job-progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+  /* ── Inventory page ── */
+    .inv-stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .inv-stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .inv-stat-card .inv-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.1;
+    }
+
+    .inv-stat-card .inv-lbl {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .inv-stat-card .inv-bar {
+      margin-top: 0.5rem;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .inv-stat-card .inv-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.6s;
+    }
+
+    .inv-search-bar {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .inv-search-bar input {
+      width: 100%;
+      max-width: 400px;
+      padding: 0.45rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-family: inherit;
+    }
+
+    .expand-row td { padding: 0; border-top: none; }
+    .expand-content {
+      padding: 0.75rem 1.25rem 1rem;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+
+    .expand-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .expand-block h4 {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .expand-block ul {
+      list-style: none;
+      font-size: 0.75rem;
+      color: var(--text);
+    }
+
+    .expand-block li {
+      padding: 0.2rem 0;
+      color: var(--text-muted);
+    }
+
+    .expand-toggle {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.2rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .expand-toggle svg { width: 14px; height: 14px; stroke: currentColor; transition: transform 0.2s; }
+    .expand-toggle.open svg { transform: rotate(90deg); }
+
+  /* ── Lineage page ── */
+    .lineage-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 1rem;
+      min-height: calc(100vh - var(--header-h) - 3rem);
+    }
+
+    @media (max-width: 900px) {
+      .lineage-layout { grid-template-columns: 1fr; }
+    }
+
+    .lineage-toolbar {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .lineage-toolbar select {
+      padding: 0.4rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-family: inherit;
+      min-width: 200px;
+    }
+
+    .lineage-canvas-wrap {
+      flex: 1;
+      overflow: auto;
+      padding: 1.5rem;
+      min-height: 400px;
+      position: relative;
+    }
+
+    #lineage-graph {
+      width: 100%;
+      min-height: 360px;
+    }
+
+    .inv-rate-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 0.25rem;
+      width: 72px;
+    }
+    .inv-rate-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--primary);
+    }
+
+    .lineage-node rect { transition: filter 0.15s; }
+    .lineage-node:hover rect { filter: brightness(1.15); }
+
+    .lineage-node-label {
+      font-size: 10px;
+      fill: rgba(255,255,255,0.75);
+    }
+    .lineage-node-meta {
+      font-size: 9px;
+      fill: rgba(255,255,255,0.6);
+    }
+
+    .lineage-details .panel-body {
+      padding: 1rem;
+      font-size: 0.78rem;
+      gap: 0.5rem;
+    }
+
+    .lineage-details .ld-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid rgba(42,45,62,0.5);
+    }
+
+    .lineage-details .ld-row span:first-child { color: var(--text-muted); }
+
+  /* ── Output drawer ── */
+    .output-drawer {
+      display: none;
+      margin-top: 0.75rem;
+    }
+
+    .output-drawer.visible { display: block; }
+
+    .output-drawer .panel-body { min-height: 220px; max-height: 480px; }
+
+    .output-drawer .output-code {
+      max-height: 360px;
+    }
+
+    .upload-page-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+  /* ── Settings modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-overlay.visible { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 480px;
+      max-height: min(90vh, 720px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1rem;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .modal-header h2 {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.25rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0.2rem 0.4rem;
+    }
+
+    .modal-close:hover { color: var(--text); }
+
+    .modal-body {
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      flex: 1;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .panels { display: none; }
+
+    html.light-theme {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --text-muted: #64748b;
+    }
+
+    /* --- Target settings (modal) --- */
+    .settings-panel { overflow: visible; }
+    .modal-body.settings-panel {
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1 1 auto;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
     }
     .settings-field { display: flex; flex-direction: column; gap: 0.3rem; }
     .settings-field label {
@@ -123,6 +1217,7 @@
       flex-direction: column;
       overflow: hidden;
       min-height: 0;
+      box-shadow: var(--shadow-sm);
     }
 
     .panel-header {
@@ -666,7 +1761,7 @@
     .progress-fill {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, var(--primary), #a855f7);
+      background: linear-gradient(90deg, var(--primary), #60A5FA);
       border-radius: 2px;
       transition: width 0.3s ease;
     }
@@ -736,222 +1831,547 @@
 </head>
 <body>
 
-  <div class="header">
-    <div class="header-icon">Py</div>
-    <div>
-      <h1>Pentaho to PySpark Converter</h1>
-      <p>Upload a Pentaho project ZIP to generate Databricks-ready PySpark code</p>
-    </div>
-  </div>
+<div class="app-shell">
 
-  <div class="container">
-    <div class="panels">
+  <!-- ── Left Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Pentaho &rarr; Databricks Converter</div>
 
-      <!-- LEFT: Target settings sidebar -->
-      <div class="panel settings-panel">
-        <div class="panel-header">
-          <h2>Target settings</h2>
-          <span class="conn-pill off" id="conn-pill">NOT CONNECTED</span>
-        </div>
-        <div class="panel-body">
-          <div class="settings-field">
-            <label>Unity Catalog</label>
-            <input type="text" id="set-catalog" placeholder="main">
-          </div>
-          <div class="settings-field">
-            <label>Schema</label>
-            <input type="text" id="set-schema" placeholder="default">
-          </div>
-          <div class="settings-field">
-            <label>Workspace URL</label>
-            <input type="text" id="set-host" placeholder="https://adb-....azuredatabricks.net">
-          </div>
-          <div class="settings-field">
-            <label>Personal access token</label>
-            <input type="password" id="set-token" placeholder="dapi..." autocomplete="off">
-          </div>
-          <div class="settings-field">
-            <label>Storage account</label>
-            <input type="text" id="set-storage" placeholder="(optional)">
-          </div>
-          <div class="settings-field">
-            <label>Container</label>
-            <input type="text" id="set-container" placeholder="(optional)">
-          </div>
-          <div class="settings-field">
-            <label>UC path prefix</label>
-            <input type="text" id="set-prefix" placeholder="(optional)">
-          </div>
-          <div class="settings-field">
-            <label>Notebook folder</label>
-            <input type="text" id="set-nbdir" placeholder="/Shared/pentaho_converted">
-          </div>
-          <label class="settings-checkbox">
-            <input type="checkbox" id="set-managed"> Managed tables (no LOCATION)
-          </label>
-          <div class="settings-field">
-            <label>Target format</label>
-            <select id="set-format">
-              <option value="delta">delta</option>
-              <option value="parquet">parquet</option>
-              <option value="csv">csv</option>
-            </select>
-          </div>
-          <div class="action-bar" style="flex-direction:column; gap:0.5rem;">
-            <button class="btn btn-ghost" id="test-conn-btn" style="width:100%;">Test connection</button>
-            <button class="btn btn-success" id="push-btn" style="width:100%;" disabled>Push to Databricks</button>
-          </div>
-          <div class="settings-msg" id="settings-msg"></div>
-          <p style="font-size:0.68rem;color:var(--text-muted);line-height:1.4;margin-top:0.25rem;">
-            Enter your Databricks workspace URL and personal access token above. Credentials are sent only when you test or push — they are not stored on the server.
-          </p>
-        </div>
-      </div>
-
-      <!-- MIDDLE: Input Panel -->
-      <div class="panel">
-        <div class="panel-header">
-          <h2>Pentaho Project</h2>
-        </div>
-        <div class="panel-body">
-          <div class="status-bar" id="status-bar">
-            Status: <strong id="status-text">Ready</strong>
-          </div>
-          <div class="progress-bar-wrap" id="progress-wrap">
-            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
-            <div class="progress-label" id="progress-label">Uploading...</div>
-          </div>
-
-          <div class="upload-zone" id="upload-zone">
-            <div class="upload-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-            <p>Drag &amp; drop your Pentaho project ZIP here, or <span class="browse-link">browse</span></p>
-            <p style="font-size: 0.75rem; margin-top: 0.5rem; color: #334155;">
-              Upload a ZIP containing .kjb and .ktr files (max 50 MB)
-            </p>
-            <div class="file-info" id="file-info">
-              <span id="file-name"></span>
-              <button class="remove-file" id="remove-file" title="Remove file">&times;</button>
-            </div>
-          </div>
-          <input type="file" id="file-input" accept=".zip,.ZIP" hidden>
-
-          <div class="action-bar">
-            <button class="btn btn-primary" id="convert-btn">
-              <span class="spinner" id="spinner"></span>
-              Convert to PySpark
-            </button>
-            <button class="btn btn-ghost" id="clear-btn">Clear</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- RIGHT: Output Panel -->
-      <div class="panel">
-        <div class="panel-header">
-          <h2>Generated PySpark</h2>
-          <div style="display:flex; gap:0.5rem;">
-            <button class="btn btn-ghost" id="copy-btn" style="display:none;">Copy</button>
-            <button class="btn btn-ghost" id="download-btn" style="display:none;">Download .py</button>
-            <button class="btn btn-success" id="download-zip-btn" style="display:none;">Download ZIP</button>
-          </div>
-        </div>
-        <div class="panel-body">
-          <div class="error-banner" id="error-banner"></div>
-          <div class="file-list" id="file-list"></div>
-          <div class="placeholder-msg" id="placeholder">
-            Generated PySpark files will appear here after conversion.
-          </div>
-          <div class="output-code" id="output-area" style="display:none;">
-            <pre><code class="language-python" id="code-block"></code></pre>
-          </div>
-          <div class="summary-bar" id="summary-bar">
-            <span class="summary-item">Jobs: <strong id="stat-jobs">0</strong></span>
-            <span class="summary-item">Transformations: <strong id="stat-transformations">0</strong></span>
-            <span class="summary-item">Files: <strong id="stat-files">0</strong></span>
-            <span class="summary-item" style="color:var(--success)">Converted: <strong id="stat-converted">0</strong></span>
-            <span class="summary-item warn">Approximated: <strong id="stat-approximated">0</strong></span>
-            <span class="summary-item" style="color:var(--error)">Skipped: <strong id="stat-skipped">0</strong></span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Conversion Logs -->
-    <div class="logs-panel" id="logs-panel">
-      <div class="logs-header">Conversion Logs</div>
-      <div class="logs-body" id="logs-body"></div>
-    </div>
-
-    <!-- Analysis Section (collapsible, below panels) -->
-    <div class="analysis-section" id="analysis-section">
-      <button class="analysis-toggle" id="analysis-toggle">
-        <span>Output Analysis</span>
-        <span class="chevron">&#9660;</span>
+    <div class="nav-group-label">Migration</div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-page="upload" id="nav-upload">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload
       </button>
-      <div class="analysis-body" id="analysis-body">
-        <div class="analysis-loading" id="analysis-loading">
-          <div class="spinner-sm"></div>
-          Analyzing output...
-        </div>
-        <div id="analysis-content" style="display:none;">
+      <button class="nav-item" data-page="inventory" id="nav-inventory">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Inventory
+      </button>
+      <button class="nav-item" data-page="lineage" id="nav-lineage">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Lineage
+      </button>
+      <button class="nav-item" data-page="validation" id="nav-validation">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Validation
+      </button>
+    </nav>
 
-          <!-- Gauge + summary stats -->
-          <div class="gauge-row">
-            <div class="gauge-container">
-              <svg class="gauge-svg" viewBox="0 0 120 120" width="120" height="120">
-                <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
-                <circle class="gauge-fill" id="gauge-arc" cx="60" cy="60" r="50"
-                  stroke-dasharray="314.16" stroke-dashoffset="314.16"></circle>
-              </svg>
-              <div class="gauge-label">
-                <span class="score" id="gauge-score">0</span>
-                <span class="unit">semantic accuracy</span>
+    <div class="nav-group-label">Deployment</div>
+    <nav class="sidebar-nav" style="padding-top:0;flex:0;">
+      <button class="nav-item" id="nav-settings" type="button">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+    </nav>
+
+    <!-- hidden meta for JS -->
+    <span id="sidebar-project-name" style="display:none">No project loaded</span>
+    <span id="sidebar-conversion-status" style="display:none">Ready</span>
+    <span id="sidebar-last-run" style="display:none">—</span>
+  </aside>
+
+  <!-- ── Main area ── -->
+  <div class="main-wrapper">
+
+    <header class="top-header">
+      <div class="header-left">
+        <div class="header-title" id="header-project">No Project Selected</div>
+        <div class="header-subtitle" id="header-project-subtitle">Upload a Pentaho project to begin conversion.</div>
+        <div class="header-badges">
+          <span class="hdr-badge zip" id="header-badge-zip">ZIP</span>
+          <span class="hdr-badge scanned" id="header-badge-status" style="display:none">scanned</span>
+          <span class="hdr-badge files" id="header-badge-files" style="display:none">0 context file(s)</span>
+        </div>
+        <span id="header-step" style="display:none">Upload</span>
+      </div>
+      <div class="header-actions">
+        <button class="hdr-btn hdr-btn-ghost" id="header-convert-btn" type="button">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Convert
+        </button>
+        <button class="hdr-btn hdr-btn-primary" id="header-deploy-btn" type="button">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Deploy
+        </button>
+        <button class="hdr-btn hdr-btn-ghost" id="header-rescan-btn" type="button">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Rescan
+        </button>
+        <button class="icon-btn" id="settings-open-btn" title="Settings">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="hdr-btn hdr-btn-danger" id="header-clear-btn" type="button" title="Clear project">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </div>
+      <input type="search" id="global-search" style="display:none" aria-hidden="true">
+      <button id="theme-toggle-btn" style="display:none" aria-hidden="true"></button>
+    </header>
+
+    <main class="main-content">
+      <div class="container">
+
+        <!-- ═══ UPLOAD PAGE ═══ -->
+        <div class="page page-upload active" id="page-upload">
+
+          <div class="upload-page-stack">
+
+          <div class="upload-layout">
+
+            <!-- LEFT 70%: Upload card -->
+            <div class="panel upload-card">
+              <div class="panel-header">
+                <h2>Upload Source</h2>
+                <span class="upload-subtitle">Select Pentaho Project</span>
+              </div>
+
+              <div class="upload-methods" id="upload-methods">
+                <button class="method-card" data-method="folder" type="button">
+                  <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  Upload Folder
+                </button>
+                <button class="method-card" data-method="file" type="button">
+                  <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Single File
+                </button>
+                <button class="method-card active" data-method="zip" type="button">
+                  <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                  Upload ZIP
+                </button>
+                <button class="method-card" data-method="paste" type="button">
+                  <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                  Paste .ktr XML
+                </button>
+              </div>
+
+              <div class="panel-body">
+                <div class="status-bar" id="status-bar">
+                  Status: <strong id="status-text">Ready</strong>
+                </div>
+                <div class="progress-bar-wrap" id="progress-wrap">
+                  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+                  <div class="progress-label" id="progress-label">Uploading...</div>
+                </div>
+
+                <!-- Drag-and-drop pane -->
+                <div class="upload-pane active" id="upload-pane">
+                  <div class="upload-zone" id="upload-zone">
+                    <div class="upload-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                      </svg>
+                    </div>
+                    <p>Drag &amp; drop your Pentaho project here, or <span class="browse-link">browse</span></p>
+                    <p id="upload-hint" style="font-size: 0.75rem; margin-top: 0.5rem; color: #334155;">
+                      Upload a ZIP containing .kjb and .ktr files (max 50 MB)
+                    </p>
+                    <div class="file-info" id="file-info">
+                      <span id="file-name"></span>
+                      <button class="remove-file" id="remove-file" title="Remove file">&times;</button>
+                    </div>
+                  </div>
+                  <input type="file" id="file-input" accept=".zip,.ZIP" hidden>
+                </div>
+
+                <!-- Paste XML pane -->
+                <div class="paste-pane" id="paste-pane">
+                  <textarea id="xml-paste" placeholder="Paste your .ktr XML content here…"></textarea>
+                </div>
+
+                <div class="action-bar">
+                  <button class="btn btn-primary" id="convert-btn">
+                    <span class="spinner" id="spinner"></span>
+                    Convert to PySpark
+                  </button>
+                  <button class="btn btn-ghost" id="clear-btn">Clear</button>
+                </div>
               </div>
             </div>
-            <div class="gauge-stats">
-              <div class="gauge-stat">Coverage: <strong id="a-coverage">0%</strong></div>
-              <div class="gauge-stat">Semantic accuracy: <strong id="a-semantic">0%</strong></div>
-              <div class="gauge-stat"><span class="dot" style="background:#4ade80"></span> Fully converted: <strong id="a-converted">0</strong></div>
-              <div class="gauge-stat"><span class="dot" style="background:#fbbf24"></span> Approximated: <strong id="a-approx">0</strong></div>
-              <div class="gauge-stat"><span class="dot" style="background:#f87171"></span> Unsupported: <strong id="a-unsup">0</strong></div>
-              <div class="gauge-stat"><span class="dot" style="background:#94a3b8"></span> Missing in output: <strong id="a-missing">0</strong></div>
-              <div class="gauge-stat" id="a-syntax-row">Syntax: <strong id="a-syntax">Valid</strong></div>
-              <div class="gauge-stat">TODOs: <strong id="a-todos">0</strong></div>
+
+            <!-- RIGHT 30%: Analysis Summary -->
+            <div class="panel summary-card">
+              <div class="panel-header"><h2>Analysis Summary</h2></div>
+              <div class="panel-body">
+                <div class="sc-gauge-wrap">
+                  <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 120 120" width="100" height="100">
+                      <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+                      <circle class="gauge-fill" id="sc-gauge-arc" cx="60" cy="60" r="50"
+                        stroke-dasharray="314.16" stroke-dashoffset="314.16"></circle>
+                    </svg>
+                    <div class="gauge-label">
+                      <span class="score" id="sc-gauge-score">—</span>
+                      <span class="unit">accuracy</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="metric-row">
+                  <div class="metric-header"><span>Complexity</span><strong id="sc-complexity-val">—</strong></div>
+                  <div class="metric-track"><div class="metric-fill" id="sc-complexity-fill"></div></div>
+                </div>
+                <div class="metric-row">
+                  <div class="metric-header"><span>Convertibility</span><strong id="sc-convertibility-val">—</strong></div>
+                  <div class="metric-track"><div class="metric-fill" id="sc-convertibility-fill"></div></div>
+                </div>
+
+                <div class="sc-warnings-badge" id="sc-warnings-wrap" style="display:none;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <span id="sc-warnings">0 warnings</span>
+                </div>
+
+                <div class="sc-stats-grid">
+                  <div class="sc-stat"><div class="sc-stat-val" id="sc-files">0</div><div class="sc-stat-lbl">Files Uploaded</div></div>
+                  <div class="sc-stat"><div class="sc-stat-val" id="sc-jobs">0</div><div class="sc-stat-lbl">Jobs Detected</div></div>
+                  <div class="sc-stat" style="grid-column:span 2"><div class="sc-stat-val" id="sc-transformations">0</div><div class="sc-stat-lbl">Transformations</div></div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Transformation table -->
-          <div class="analysis-heading">Step Breakdown</div>
-          <div style="overflow-x:auto;">
-            <table class="tx-table">
-              <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Score</th><th>Has Logic</th><th>Detail</th></tr></thead>
-              <tbody id="tx-tbody"></tbody>
-            </table>
+          <!-- Generated PySpark (immediately below upload + summary) -->
+          <div class="output-drawer panel" id="output-drawer">
+            <div class="panel-header">
+              <h2>Generated PySpark</h2>
+              <div style="display:flex; gap:0.5rem;">
+                <button class="btn btn-ghost btn-xs" id="copy-btn" style="display:none;">Copy</button>
+                <button class="btn btn-ghost btn-xs" id="download-btn" style="display:none;">Download .py</button>
+                <button class="btn btn-success btn-xs" id="download-zip-btn" style="display:none;">Download ZIP</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="error-banner" id="error-banner"></div>
+              <div class="file-list" id="file-list"></div>
+              <div class="placeholder-msg" id="placeholder">
+                Generated PySpark files will appear here after conversion.
+              </div>
+              <div class="output-code" id="output-area" style="display:none;">
+                <pre><code class="language-python" id="code-block"></code></pre>
+              </div>
+              <div class="summary-bar" id="summary-bar">
+                <span class="summary-item">Jobs: <strong id="stat-jobs">0</strong></span>
+                <span class="summary-item">Transformations: <strong id="stat-transformations">0</strong></span>
+                <span class="summary-item">Files: <strong id="stat-files">0</strong></span>
+                <span class="summary-item" style="color:var(--success)">Converted: <strong id="stat-converted">0</strong></span>
+                <span class="summary-item warn">Approximated: <strong id="stat-approximated">0</strong></span>
+                <span class="summary-item" style="color:var(--error)">Skipped: <strong id="stat-skipped">0</strong></span>
+              </div>
+            </div>
           </div>
 
-          <!-- Expression diff -->
-          <div class="analysis-heading" id="expr-heading" style="display:none;">Expression Comparison</div>
-          <div style="overflow-x:auto;">
-            <table class="diff-table" id="expr-table" style="display:none;">
-              <thead><tr><th>Step</th><th>Field / Attribute</th><th>Original (Pentaho)</th><th>Converted (PySpark)</th><th>Status</th></tr></thead>
-              <tbody id="expr-tbody"></tbody>
-            </table>
+          <!-- Job Conversion Table (hidden) -->
+          <div class="jobs-section panel" id="jobs-section">
+            <div class="jobs-toolbar">
+              <h3>Job Conversion</h3>
+              <div class="jobs-toolbar-actions">
+                <button class="btn btn-primary btn-xs" id="convert-selected-btn">Convert Selected</button>
+                <button class="btn btn-success btn-xs" id="convert-all-btn">Convert All</button>
+              </div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table" id="jobs-table">
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="job-select-all" title="Select all"></th>
+                    <th>Job Name</th>
+                    <th>Type</th>
+                    <th>Complexity</th>
+                    <th>Convertibility</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="jobs-table-body"></tbody>
+              </table>
+            </div>
           </div>
 
-          <!-- Warnings -->
-          <div class="analysis-heading" id="warn-heading" style="display:none;">Warnings &amp; Errors</div>
-          <ul class="warn-list" id="warn-list"></ul>
+          <!-- Conversion Logs -->
+          <div class="logs-panel" id="logs-panel">
+            <div class="logs-header">Conversion Logs</div>
+            <div class="logs-body" id="logs-body"></div>
+          </div>
+
+          </div><!-- /upload-page-stack -->
+
+        </div><!-- /page-upload -->
+
+        <!-- ═══ INVENTORY PAGE ═══ -->
+        <div class="page page-inventory" id="page-inventory">
+
+          <div class="panel inv-card">
+            <div class="inv-card-header">
+              <div class="inv-card-title">
+                <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span id="inv-card-title">Inventory (0 jobs)</span>
+              </div>
+              <div class="filter-chips" id="filter-chips">
+                <button class="filter-chip active" data-filter="all" type="button">All</button>
+                <button class="filter-chip chip-low" data-filter="low" type="button">Low</button>
+                <button class="filter-chip chip-med" data-filter="medium" type="button">Medium</button>
+                <button class="filter-chip chip-high" data-filter="high" type="button">High</button>
+              </div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table inv-table" id="inventory-table">
+                <thead>
+                  <tr>
+                    <th>FILE NAME</th>
+                    <th>TYPE</th>
+                    <th>COMPLEXITY</th>
+                    <th>CONVERSION RATE</th>
+                    <th>STATUS</th>
+                    <th>DEPENDENCIES</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="inventory-table-body">
+                  <tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--text-muted);font-size:0.8rem;">Upload a project to see inventory</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- hidden stat elements for JS -->
+          <span id="inv-total-jobs" style="display:none">0</span>
+          <span id="inv-total-tx" style="display:none">0</span>
+          <span id="inv-converted" style="display:none">0</span>
+          <span id="inv-pending" style="display:none">0</span>
+          <span id="inv-complexity" style="display:none">—</span>
+          <span id="inv-convertibility" style="display:none">—</span>
+          <span id="inv-converted-bar" style="display:none"></span>
+          <span id="inv-pending-bar" style="display:none"></span>
+          <span id="inv-complexity-bar" style="display:none"></span>
+          <span id="inv-convertibility-bar" style="display:none"></span>
+          <input type="search" id="inv-search" style="display:none" aria-hidden="true">
+
+        </div><!-- /page-inventory -->
+
+        <!-- ═══ VALIDATION PAGE ═══ -->
+        <div class="page page-validation" id="page-validation">
+          <p id="validation-empty" style="text-align:center;padding:3rem;color:var(--text-muted);font-size:0.85rem;">Run a conversion to view validation results.</p>
+          <div class="analysis-section" id="analysis-section">
+            <button class="analysis-toggle open" id="analysis-toggle">
+              <span>Output Analysis</span>
+              <span class="chevron">&#9660;</span>
+            </button>
+            <div class="analysis-body open" id="analysis-body">
+              <div class="analysis-loading" id="analysis-loading">
+                <div class="spinner-sm"></div>
+                Analyzing output...
+              </div>
+              <div id="analysis-content" style="display:none;">
+                <div class="validation-accuracy-row">
+                  <div class="validation-card validation-gauge-card">
+                    <div class="validation-card-header">Accuracy Gauge</div>
+                    <div class="validation-card-body">
+                      <div class="validation-gauge-stack">
+                        <div class="validation-gauge-ring">
+                          <svg class="gauge-svg" viewBox="0 0 120 120" aria-hidden="true">
+                            <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="gauge-fill" id="gauge-arc" cx="60" cy="60" r="50"
+                              stroke-dasharray="314.16" stroke-dashoffset="314.16"></circle>
+                          </svg>
+                          <span class="validation-gauge-score" id="gauge-score">0</span>
+                        </div>
+                        <span class="validation-gauge-caption">Semantic Accuracy</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="validation-card validation-summary-card">
+                    <div class="validation-card-header">Validation Summary</div>
+                    <div class="validation-card-body">
+                      <div class="validation-summary-list">
+                        <div class="validation-metric-row">
+                          <span class="validation-metric-label">Coverage</span>
+                          <strong class="validation-metric-value" id="a-coverage">0%</strong>
+                        </div>
+                        <div class="validation-metric-row">
+                          <span class="validation-metric-label"><span class="dot" style="background:#4ade80"></span> Fully Converted</span>
+                          <strong class="validation-metric-value" id="a-converted">0</strong>
+                        </div>
+                        <div class="validation-metric-row">
+                          <span class="validation-metric-label"><span class="dot" style="background:#f87171"></span> Unsupported</span>
+                          <strong class="validation-metric-value" id="a-unsup">0</strong>
+                        </div>
+                        <div class="validation-metric-row" id="a-syntax-row">
+                          <span class="validation-metric-label">Syntax</span>
+                          <strong class="validation-metric-value" id="a-syntax">Valid</strong>
+                        </div>
+                        <div class="validation-metric-row">
+                          <span class="validation-metric-label">Semantic Accuracy</span>
+                          <strong class="validation-metric-value" id="a-semantic">0%</strong>
+                        </div>
+                        <div class="validation-metric-row">
+                          <span class="validation-metric-label"><span class="dot" style="background:#fbbf24"></span> Approximated</span>
+                          <strong class="validation-metric-value" id="a-approx">0</strong>
+                        </div>
+                        <div class="validation-metric-row">
+                          <span class="validation-metric-label"><span class="dot" style="background:#94a3b8"></span> Missing</span>
+                          <strong class="validation-metric-value" id="a-missing">0</strong>
+                        </div>
+                        <div class="validation-metric-row">
+                          <span class="validation-metric-label">TODOs</span>
+                          <strong class="validation-metric-value" id="a-todos">0</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="validation-section-heading">Step Breakdown</div>
+                <div class="validation-table-card">
+                  <div class="validation-table-scroll">
+                    <table class="tx-table">
+                      <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Score</th><th>Has Logic</th><th>Detail</th></tr></thead>
+                      <tbody id="tx-tbody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="analysis-heading" id="expr-heading" style="display:none;">Expression Comparison</div>
+                <div class="validation-table-card" id="expr-table-wrap" style="display:none;">
+                  <div class="validation-table-scroll">
+                    <table class="diff-table" id="expr-table">
+                      <thead><tr><th>Step</th><th>Field / Attribute</th><th>Original (Pentaho)</th><th>Converted (PySpark)</th><th>Status</th></tr></thead>
+                      <tbody id="expr-tbody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="analysis-heading" id="warn-heading" style="display:none;">Warnings &amp; Errors</div>
+                <ul class="warn-list" id="warn-list"></ul>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+
+        <!-- ═══ LINEAGE PAGE ═══ -->
+        <div class="page page-lineage" id="page-lineage">
+          <div class="panel inv-card">
+            <div class="inv-card-header">
+              <div class="inv-card-title">
+                <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                <span>Lineage</span>
+              </div>
+              <div class="lineage-toolbar" style="border:none;padding:0;">
+                <select id="lineage-job-select">
+                  <option value="">— Select a job —</option>
+                </select>
+              </div>
+            </div>
+            <div class="lineage-layout" style="grid-template-columns:1fr 280px;min-height:auto;">
+              <div class="lineage-canvas-wrap" style="min-height:420px;">
+                <svg id="lineage-graph" xmlns="http://www.w3.org/2000/svg"></svg>
+              </div>
+              <div class="lineage-details" style="border-left:1px solid var(--border);">
+                <div style="padding:0.75rem 1rem;border-bottom:1px solid var(--border);font-size:0.82rem;font-weight:600;color:var(--text);">Node Details</div>
+                <div id="lineage-details-panel" style="padding:1rem;font-size:0.78rem;">
+                  <p style="color:var(--text-muted);">Click a node in the graph to view details.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- /page-lineage -->
+
+      </div><!-- /container -->
+    </main>
+  </div><!-- /main-wrapper -->
+</div><!-- /app-shell -->
+
+<!-- Job Details Drawer -->
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<aside class="job-drawer" id="job-drawer">
+  <div class="drawer-header">
+    <h3 id="drawer-job-name">—</h3>
+    <button class="drawer-close" id="drawer-close-btn" type="button">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-metric"><span>Complexity</span><strong id="drawer-complexity">—</strong></div>
+    <div class="drawer-metric"><span>Convertibility</span><strong id="drawer-convertibility">—</strong></div>
+    <div class="drawer-metric"><span>Accuracy</span><strong id="drawer-accuracy">—</strong></div>
+    <div class="drawer-metric"><span>Warnings</span><strong id="drawer-warnings">0</strong></div>
+    <div class="drawer-metric"><span>Dependencies</span><strong id="drawer-dependencies">0</strong></div>
+    <div class="drawer-section">
+      <h4>Transformations</h4>
+      <ul id="drawer-transformations"><li>—</li></ul>
     </div>
   </div>
+  <div class="drawer-actions">
+    <button class="btn btn-primary" id="drawer-convert-btn" type="button">Convert</button>
+    <button class="btn btn-ghost" id="drawer-preview-btn" type="button">Preview</button>
+    <button class="btn btn-ghost" id="drawer-download-btn" type="button">Download</button>
+  </div>
+</aside>
+
+<!-- Settings Modal (Databricks target settings) -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Target Settings</h2>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <span class="conn-pill off" id="conn-pill">NOT CONNECTED</span>
+        <button class="modal-close" id="settings-close-btn">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body settings-panel">
+      <div class="settings-field">
+        <label>Unity Catalog</label>
+        <input type="text" id="set-catalog" placeholder="main">
+      </div>
+      <div class="settings-field">
+        <label>Schema</label>
+        <input type="text" id="set-schema" placeholder="default">
+      </div>
+      <div class="settings-field">
+        <label>Workspace URL</label>
+        <input type="text" id="set-host" placeholder="https://adb-....azuredatabricks.net">
+      </div>
+      <div class="settings-field">
+        <label>Personal access token</label>
+        <input type="password" id="set-token" placeholder="dapi..." autocomplete="off">
+      </div>
+      <div class="settings-field">
+        <label>Storage account</label>
+        <input type="text" id="set-storage" placeholder="(optional)">
+      </div>
+      <div class="settings-field">
+        <label>Container</label>
+        <input type="text" id="set-container" placeholder="(optional)">
+      </div>
+      <div class="settings-field">
+        <label>UC path prefix</label>
+        <input type="text" id="set-prefix" placeholder="(optional)">
+      </div>
+      <div class="settings-field">
+        <label>Notebook folder</label>
+        <input type="text" id="set-nbdir" placeholder="/Shared/pentaho_converted">
+      </div>
+      <label class="settings-checkbox">
+        <input type="checkbox" id="set-managed"> Managed tables (no LOCATION)
+      </label>
+      <div class="settings-field">
+        <label>Target format</label>
+        <select id="set-format">
+          <option value="delta">delta</option>
+          <option value="parquet">parquet</option>
+          <option value="csv">csv</option>
+        </select>
+      </div>
+      <div class="action-bar" style="flex-direction:column; gap:0.5rem; border-top:none; padding:0;">
+        <button class="btn btn-ghost" id="test-conn-btn" style="width:100%;">Test connection</button>
+        <button class="btn btn-success" id="push-btn" style="width:100%;" disabled>Push to Databricks</button>
+      </div>
+      <div class="settings-msg" id="settings-msg"></div>
+      <p style="font-size:0.68rem;color:var(--text-muted);line-height:1.4;">
+        Enter your Databricks workspace URL and personal access token above. Credentials are sent only when you test or push — they are not stored on the server.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden legacy panels container (preserves structure) -->
+<div class="panels" style="display:none!important" aria-hidden="true"></div>
 
 <script>
 (function() {
@@ -979,6 +2399,19 @@
   const logsPanel       = document.getElementById('logs-panel');
   const logsBody        = document.getElementById('logs-body');
   const fileList        = document.getElementById('file-list');
+  const outputDrawer    = document.getElementById('output-drawer');
+  const jobsSection     = document.getElementById('jobs-section');
+  const jobsTableBody   = document.getElementById('jobs-table-body');
+  const uploadPane      = document.getElementById('upload-pane');
+  const pastePane       = document.getElementById('paste-pane');
+  const uploadHint      = document.getElementById('upload-hint');
+  const xmlPaste        = document.getElementById('xml-paste');
+
+  let uploadMethod = 'zip';
+  let projectInventory = [];
+  let lastAnalysis = null;
+  let lastSummary = null;
+  let lineageData = null;
 
   // --- Databricks target settings (entered in UI, sent with each request) ---
   const connPill     = document.getElementById('conn-pill');
@@ -1113,6 +2546,7 @@
   loadDatabricksConfig();
 
   let selectedFile = null;
+  let selectedFolderFiles = null;
   let generatedCode = '';
   let generatedFiles = {};
   let zipBase64 = '';
@@ -1194,7 +2628,12 @@
   });
 
   fileInput.addEventListener('change', () => {
-    if (fileInput.files.length) handleFile(fileInput.files[0]);
+    if (!fileInput.files.length) return;
+    if (uploadMethod === 'folder') {
+      handleFolderFiles(fileInput.files);
+    } else {
+      handleFile(fileInput.files[0]);
+    }
   });
 
   ['dragover', 'dragenter'].forEach(evt => {
@@ -1205,25 +2644,112 @@
   });
 
   uploadZone.addEventListener('drop', e => {
-    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    if (!e.dataTransfer.files.length) return;
+    if (uploadMethod === 'folder') {
+      handleFolderFiles(e.dataTransfer.files);
+    } else {
+      handleFile(e.dataTransfer.files[0]);
+    }
   });
 
-  function handleFile(file) {
-    if (!file.name.toLowerCase().endsWith('.zip')) {
-      showError('Please upload a .zip file containing your Pentaho project.');
+  function handleFolderFiles(fileList) {
+    const files = Array.from(fileList);
+    if (!files.length) return;
+    const pentahoFiles = files.filter(f => /\.(ktr|kjb)$/i.test(f.name));
+    if (!pentahoFiles.length) {
+      showError('No .kjb or .ktr files found in the selected folder.');
       return;
     }
+    selectedFolderFiles = files;
+    selectedFile = null;
+    const folderName = (files[0].webkitRelativePath || files[0].name).split('/')[0] || 'pentaho_project';
+    fileName.textContent = folderName + ' (' + pentahoFiles.length + ' Pentaho file' + (pentahoFiles.length !== 1 ? 's' : '') + ')';
+    fileInfo.classList.add('visible');
+    setStatus('Folder selected — ready to convert', 'ready');
+    updateProjectMeta(folderName, 'Ready to convert', null);
+  }
+
+  function handleFile(file) {
+    if (uploadMethod === 'zip') {
+      if (!file.name.toLowerCase().endsWith('.zip')) {
+        showError('Please upload a .zip file containing your Pentaho project.');
+        return;
+      }
+    } else if (uploadMethod === 'file') {
+      const lower = file.name.toLowerCase();
+      if (!lower.endsWith('.ktr') && !lower.endsWith('.kjb')) {
+        showError('Please upload a .ktr or .kjb file.');
+        return;
+      }
+    }
     selectedFile = file;
+    selectedFolderFiles = null;
     fileName.textContent = file.name + ' (' + formatBytes(file.size) + ')';
     fileInfo.classList.add('visible');
-    setStatus('ZIP selected — ready to convert', 'ready');
+    const statusLabel = uploadMethod === 'zip' ? 'ZIP' : 'File';
+    setStatus(statusLabel + ' selected — ready to convert', 'ready');
+    const projectName = file.name.replace(/\.(zip|ktr|kjb)$/i, '');
+    updateProjectMeta(projectName, 'Ready to convert', null);
+  }
+
+  function getProjectDisplayName() {
+    if (uploadMethod === 'paste') return 'pasted_transformation';
+    if (uploadMethod === 'folder' && selectedFolderFiles && selectedFolderFiles.length) {
+      return (selectedFolderFiles[0].webkitRelativePath || selectedFolderFiles[0].name).split('/')[0] || 'pentaho_project';
+    }
+    if (selectedFile) return selectedFile.name.replace(/\.(zip|ktr|kjb)$/i, '');
+    return 'pentaho_converted';
+  }
+
+  async function buildZipForUpload() {
+    if (typeof JSZip === 'undefined') {
+      throw new Error('ZIP library failed to load. Please refresh the page.');
+    }
+    if (uploadMethod === 'zip') {
+      if (!selectedFile) throw new Error('No file selected. Upload a Pentaho project ZIP file.');
+      return selectedFile;
+    }
+    if (uploadMethod === 'file') {
+      if (!selectedFile) throw new Error('No file selected. Upload a .ktr or .kjb file.');
+      const zip = new JSZip();
+      zip.file(selectedFile.name, selectedFile);
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const baseName = selectedFile.name.replace(/\.(ktr|kjb)$/i, '') || 'pentaho_project';
+      return new File([blob], baseName + '.zip', { type: 'application/zip' });
+    }
+    if (uploadMethod === 'folder') {
+      if (!selectedFolderFiles || !selectedFolderFiles.length) {
+        throw new Error('No folder selected. Choose a folder containing .kjb and .ktr files.');
+      }
+      const zip = new JSZip();
+      selectedFolderFiles.forEach(file => {
+        const path = (file.webkitRelativePath || file.name).replace(/\\/g, '/');
+        zip.file(path, file);
+      });
+      const folderName = getProjectDisplayName();
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      return new File([blob], folderName + '.zip', { type: 'application/zip' });
+    }
+    if (uploadMethod === 'paste') {
+      const xml = (xmlPaste.value || '').trim();
+      if (!xml) throw new Error('Paste your .ktr XML content first.');
+      const zip = new JSZip();
+      zip.file('pasted_transformation.ktr', xml);
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      return new File([blob], 'pasted_transformation.zip', { type: 'application/zip' });
+    }
+    throw new Error('Unsupported upload method.');
+  }
+
+  function hasUploadSource() {
+    if (uploadMethod === 'paste') return !!(xmlPaste.value || '').trim();
+    if (uploadMethod === 'folder') return !!(selectedFolderFiles && selectedFolderFiles.length);
+    return !!selectedFile;
   }
 
   removeFile.addEventListener('click', e => {
     e.stopPropagation();
-    selectedFile = null;
-    fileInput.value = '';
-    fileInfo.classList.remove('visible');
+    resetApplicationState();
   });
 
   function formatBytes(bytes) {
@@ -1234,32 +2760,134 @@
 
   // --- Clear ---
   clearBtn.addEventListener('click', () => {
+    resetApplicationState();
+  });
+
+  function resetSummaryCard() {
+    const circ = 314.16;
+    const arc = document.getElementById('sc-gauge-arc');
+    if (arc) {
+      arc.style.stroke = 'var(--border)';
+      arc.setAttribute('stroke-dashoffset', circ);
+    }
+    const scoreEl = document.getElementById('sc-gauge-score');
+    if (scoreEl) { scoreEl.textContent = '—'; scoreEl.style.color = ''; }
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('sc-complexity-val', '—');
+    set('sc-convertibility-val', '—');
+    set('sc-files', '0');
+    set('sc-jobs', '0');
+    set('sc-transformations', '0');
+    const cFill = document.getElementById('sc-complexity-fill');
+    const cvFill = document.getElementById('sc-convertibility-fill');
+    if (cFill) cFill.style.width = '0%';
+    if (cvFill) cvFill.style.width = '0%';
+    const warnWrap = document.getElementById('sc-warnings-wrap');
+    if (warnWrap) warnWrap.style.display = 'none';
+    set('sc-warnings', '0 warnings');
+    ['stat-jobs', 'stat-transformations', 'stat-files', 'stat-converted', 'stat-approximated', 'stat-skipped'].forEach(id => set(id, '0'));
+    const codeBlock = document.getElementById('code-block');
+    if (codeBlock) codeBlock.textContent = '';
+  }
+
+  function resetAnalysisPanel() {
+    analysisSection.classList.remove('visible');
+    analysisContent.style.display = 'none';
+    analysisLoading.style.display = 'none';
+    document.getElementById('tx-tbody').innerHTML = '';
+    document.getElementById('expr-tbody').innerHTML = '';
+    document.getElementById('warn-list').innerHTML = '';
+    document.getElementById('expr-heading').style.display = 'none';
+    const exprWrap = document.getElementById('expr-table-wrap');
+    if (exprWrap) exprWrap.style.display = 'none';
+    document.getElementById('expr-table').style.display = '';
+    document.getElementById('warn-heading').style.display = 'none';
+    const arc = document.getElementById('gauge-arc');
+    if (arc) {
+      arc.style.stroke = 'var(--border)';
+      arc.setAttribute('stroke-dashoffset', '314.16');
+    }
+    document.getElementById('gauge-score').textContent = '0';
+    document.getElementById('gauge-score').style.color = '';
+    ['a-coverage', 'a-semantic'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '0%';
+    });
+    ['a-converted', 'a-approx', 'a-unsup', 'a-missing', 'a-todos'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '0';
+    });
+    const syntaxEl = document.getElementById('a-syntax');
+    if (syntaxEl) { syntaxEl.textContent = 'Valid'; syntaxEl.style.color = ''; }
+    document.getElementById('validation-empty').style.display = 'block';
+  }
+
+  function resetLineage() {
+    lineageData = null;
+    const graph = document.getElementById('lineage-graph');
+    if (graph) graph.innerHTML = '';
+    const panel = document.getElementById('lineage-details-panel');
+    if (panel) panel.innerHTML = '<p style="color:var(--text-muted);">Click a node in the graph to view details.</p>';
+    const sel = document.getElementById('lineage-job-select');
+    if (sel) sel.innerHTML = '<option value="">— Select a job —</option>';
+  }
+
+  function resetApplicationState() {
     selectedFile = null;
+    selectedFolderFiles = null;
     fileInput.value = '';
     fileInfo.classList.remove('visible');
     statusBar.classList.remove('visible');
+    statusText.textContent = 'Ready';
+    statusText.style.color = '';
     hideProgress();
     logsPanel.classList.remove('visible');
+    logsBody.innerHTML = '';
+    errorBanner.classList.remove('visible');
+    if (xmlPaste) xmlPaste.value = '';
     hideOutput();
-  });
+    resetSummaryCard();
+    resetAnalysisPanel();
+    resetLineage();
+    projectInventory = [];
+    lastSummary = null;
+    lastAnalysis = null;
+    lastConvertedName = 'pentaho_converted';
+    updateProjectMeta(null, 'Ready', null);
+    document.getElementById('header-badge-status').style.display = 'none';
+    document.getElementById('header-badge-files').style.display = 'none';
+    document.getElementById('inv-card-title').textContent = 'Inventory (0 files)';
+    renderInventoryPage(null, null);
+    if (typeof closeJobDrawer === 'function') closeJobDrawer();
+    settingsMsg.className = 'settings-msg';
+    settingsMsg.textContent = '';
+  }
 
   // --- Convert ---
   convertBtn.addEventListener('click', async () => {
     hideOutput();
     convertBtn.disabled = true;
     spinner.classList.add('visible');
-    setStatus('Uploading ZIP...', 'ready');
-    setProgress(10, 'Uploading project ZIP...');
+    setStatus('Preparing upload...', 'ready');
+    setProgress(10, 'Preparing project for conversion...');
 
     try {
-      if (!selectedFile) {
-        showError('No file selected. Upload a Pentaho project ZIP file.');
-        setStatus('No file selected', 'error');
+      if (!hasUploadSource()) {
+        const msg = uploadMethod === 'paste'
+          ? 'Paste your .ktr XML content first.'
+          : uploadMethod === 'folder'
+            ? 'No folder selected. Choose a folder containing .kjb and .ktr files.'
+            : 'No file selected. Upload a Pentaho project.';
+        showError(msg);
+        setStatus('No input provided', 'error');
         return;
       }
 
+      setProgress(15, 'Packaging project...');
+      const zipFile = await buildZipForUpload();
+
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('file', zipFile);
       if (setCatalog.value.trim()) formData.append('catalog', setCatalog.value.trim());
       if (setSchema.value.trim()) formData.append('schema', setSchema.value.trim());
 
@@ -1283,14 +2911,24 @@
       zipBase64 = data.zip_base64 || '';
       activeFile = data.main_workflow || Object.keys(generatedFiles)[0] || '';
       generatedCode = generatedFiles[activeFile] || data.code || '';
-      lastConvertedName = selectedFile.name.replace(/\.zip$/i, '') || 'pentaho_converted';
+      lastConvertedName = getProjectDisplayName() || 'pentaho_converted';
 
       showOutput(generatedCode, data.summary);
       renderFileList(generatedFiles, activeFile);
       showLogs(data.logs);
       setStatus('Conversion finished — ' + Object.keys(generatedFiles).length + ' file(s) generated', 'success');
       pushBtn.disabled = false;
+      lastSummary = data.summary;
+      lastAnalysis = data.analysis;
+      buildProjectInventory(data);
       showAnalysis(data.analysis);
+      updateProjectMeta(lastConvertedName, 'Converted', new Date());
+      updateHeaderBadges(data.summary);
+      document.getElementById('validation-empty').style.display = 'none';
+      navigateTo('upload');
+      setTimeout(() => {
+        outputDrawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
 
     } catch (err) {
       showError('Network error: ' + err.message);
@@ -1307,6 +2945,7 @@
     errorBanner.classList.remove('visible');
     placeholder.style.display = 'none';
     outputArea.style.display = 'block';
+    outputDrawer.classList.add('visible');
     codeBlock.textContent = code;
     hljs.highlightElement(codeBlock);
     copyBtn.style.display = 'inline-flex';
@@ -1320,23 +2959,42 @@
     document.getElementById('stat-approximated').textContent = summary.steps_approximated || 0;
     document.getElementById('stat-skipped').textContent = summary.steps_skipped || 0;
     summaryBar.classList.add('visible');
+    updateSummaryCard(summary, lastAnalysis);
+    setTimeout(() => {
+      outputDrawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
   }
 
   function hideOutput() {
     errorBanner.classList.remove('visible');
+    errorBanner.textContent = '';
     placeholder.style.display = 'flex';
     outputArea.style.display = 'none';
+    outputDrawer.classList.remove('visible');
     copyBtn.style.display = 'none';
     downloadBtn.style.display = 'none';
     downloadZipBtn.style.display = 'none';
     summaryBar.classList.remove('visible');
     fileList.classList.remove('visible');
+    fileList.innerHTML = '';
+    jobsSection.classList.remove('visible');
     generatedCode = '';
     generatedFiles = {};
     zipBase64 = '';
     activeFile = '';
+    projectInventory = [];
+    lastSummary = null;
+    lastAnalysis = null;
+    lineageData = null;
     if (pushBtn) pushBtn.disabled = true;
     analysisSection.classList.remove('visible');
+    document.getElementById('validation-empty').style.display = 'block';
+    document.getElementById('header-badge-status').style.display = 'none';
+    document.getElementById('header-badge-files').style.display = 'none';
+    document.getElementById('inv-card-title').textContent = 'Inventory (0 files)';
+    const codeBlock = document.getElementById('code-block');
+    if (codeBlock) codeBlock.textContent = '';
+    renderInventoryPage(null, null);
   }
 
   function showError(msg) {
@@ -1406,9 +3064,9 @@
   }
 
   function gaugeColor(score) {
-    if (score >= 80) return '#4ade80';
-    if (score >= 50) return '#fbbf24';
-    return '#f87171';
+    if (score >= 80) return '#22C55E';
+    if (score >= 50) return '#EAB308';
+    return '#EF4444';
   }
 
   function renderAnalysis(r) {
@@ -1465,11 +3123,13 @@
 
     // Expression diff
     const exprHeading = document.getElementById('expr-heading');
+    const exprWrap = document.getElementById('expr-table-wrap');
     const exprTable = document.getElementById('expr-table');
     const exprTbody = document.getElementById('expr-tbody');
     exprTbody.innerHTML = '';
     if (r.expression_diffs.length > 0) {
       exprHeading.style.display = '';
+      if (exprWrap) exprWrap.style.display = '';
       exprTable.style.display = '';
       r.expression_diffs.forEach(d => {
         const statusBadge = d.status === 'converted'
@@ -1487,6 +3147,7 @@
       });
     } else {
       exprHeading.style.display = 'none';
+      if (exprWrap) exprWrap.style.display = 'none';
       exprTable.style.display = 'none';
     }
 
@@ -1508,6 +3169,8 @@
     } else {
       warnHeading.style.display = 'none';
     }
+
+    if (lastSummary) updateSummaryCard(lastSummary, r);
   }
 
   function esc(s) {
@@ -1515,6 +3178,688 @@
     d.textContent = s || '';
     return d.innerHTML;
   }
+
+  // ── Dashboard navigation ──
+  const PAGE_LABELS = { upload: 'Upload', inventory: 'Inventory', lineage: 'Lineage', validation: 'Validation' };
+  let activeComplexityFilter = 'all';
+  let drawerJobName = '';
+
+  function navigateTo(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
+    const el = document.getElementById('page-' + page);
+    if (el) el.classList.add('active');
+    const nav = document.querySelector('.nav-item[data-page="' + page + '"]');
+    if (nav) nav.classList.add('active');
+    const stepEl = document.getElementById('header-step');
+    if (stepEl) stepEl.textContent = PAGE_LABELS[page] || page;
+    if (page === 'lineage') renderLineageGraph();
+    if (page === 'inventory') renderInventoryPage(lastSummary, lastAnalysis);
+  }
+
+  document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+  });
+
+  document.getElementById('nav-settings').addEventListener('click', () => {
+    document.getElementById('settings-modal').classList.add('visible');
+  });
+
+  // ── Settings modal ──
+  const settingsModal = document.getElementById('settings-modal');
+  document.getElementById('settings-open-btn').addEventListener('click', () => {
+    settingsModal.classList.add('visible');
+  });
+  document.getElementById('settings-close-btn').addEventListener('click', () => {
+    settingsModal.classList.remove('visible');
+  });
+  // ── Header action buttons ──
+  document.getElementById('header-convert-btn').addEventListener('click', () => convertBtn.click());
+  document.getElementById('header-deploy-btn').addEventListener('click', () => {
+    if (!pushBtn.disabled) pushBtn.click();
+    else settingsModal.classList.add('visible');
+  });
+  document.getElementById('header-rescan-btn').addEventListener('click', () => {
+    navigateTo('upload');
+    convertBtn.click();
+  });
+  document.getElementById('header-clear-btn').addEventListener('click', () => clearBtn.click());
+
+  settingsModal.addEventListener('click', e => {
+    if (e.target === settingsModal) settingsModal.classList.remove('visible');
+  });
+
+  // ── Theme toggle (optional) ──
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      document.documentElement.classList.toggle('light-theme');
+    });
+  }
+
+  // ── Upload method tabs ──
+  document.querySelectorAll('.method-card').forEach(card => {
+    card.addEventListener('click', () => {
+      uploadMethod = card.dataset.method;
+      document.querySelectorAll('.method-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      if (uploadMethod === 'paste') {
+        uploadPane.classList.remove('active');
+        pastePane.classList.add('active');
+        selectedFile = null;
+        selectedFolderFiles = null;
+        fileInput.value = '';
+        fileInfo.classList.remove('visible');
+      } else {
+        pastePane.classList.remove('active');
+        uploadPane.classList.add('active');
+        if (uploadMethod === 'folder') {
+          fileInput.setAttribute('webkitdirectory', '');
+          fileInput.setAttribute('multiple', '');
+          fileInput.removeAttribute('accept');
+          uploadHint.textContent = 'Select a folder containing .kjb and .ktr files';
+        } else if (uploadMethod === 'file') {
+          fileInput.removeAttribute('webkitdirectory');
+          fileInput.removeAttribute('multiple');
+          fileInput.accept = '.ktr,.kjb,.KTR,.KJB';
+          uploadHint.textContent = 'Upload a single .ktr or .kjb file (max 50 MB)';
+        } else {
+          fileInput.removeAttribute('webkitdirectory');
+          fileInput.removeAttribute('multiple');
+          fileInput.accept = '.zip,.ZIP';
+          uploadHint.textContent = 'Upload a ZIP containing .kjb and .ktr files (max 50 MB)';
+        }
+        selectedFile = null;
+        selectedFolderFiles = null;
+        fileInput.value = '';
+        fileInfo.classList.remove('visible');
+      }
+    });
+  });
+
+  if (xmlPaste) {
+    xmlPaste.addEventListener('input', () => {
+      if (uploadMethod !== 'paste') return;
+      if ((xmlPaste.value || '').trim()) {
+        setStatus('XML pasted — ready to convert', 'ready');
+        updateProjectMeta('pasted_transformation', 'Ready to convert', null);
+      } else if (!selectedFile && !selectedFolderFiles) {
+        updateProjectMeta(null, 'Ready', null);
+        setStatus('Ready', 'ready');
+      }
+    });
+  }
+
+  // ── Global search (hidden but preserved) ──
+  const globalSearchEl = document.getElementById('global-search');
+  if (globalSearchEl) {
+    globalSearchEl.addEventListener('input', e => {
+      const q = e.target.value.toLowerCase();
+      const invSearch = document.getElementById('inv-search');
+      if (invSearch) invSearch.value = q;
+      filterInventoryTable(q);
+      filterJobsTable(q);
+    });
+  }
+
+  const invSearchEl = document.getElementById('inv-search');
+  if (invSearchEl) {
+    invSearchEl.addEventListener('input', e => filterInventoryTable(e.target.value.toLowerCase()));
+  }
+
+  // ── Complexity filter chips ──
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      activeComplexityFilter = chip.dataset.filter;
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      renderInventoryPage(lastSummary, lastAnalysis);
+    });
+  });
+
+  // ── Job drawer ──
+  const drawerOverlay = document.getElementById('drawer-overlay');
+  const jobDrawer = document.getElementById('job-drawer');
+
+  function openJobDrawer(name) {
+    const job = projectInventory.find(j => j.name === name);
+    if (!job) return;
+    drawerJobName = name;
+    const displayName = job.displayName || job.name;
+    const rate = job.conversion_rate != null ? job.conversion_rate : job.convertibility;
+    document.getElementById('drawer-job-name').textContent = displayName;
+    document.getElementById('drawer-complexity').textContent = complexityLabel(job.complexity) + ' ' + job.complexity + '%';
+    document.getElementById('drawer-convertibility').textContent = rate + '%';
+    document.getElementById('drawer-accuracy').textContent = (lastAnalysis ? lastAnalysis.accuracy_score : rate) + '%';
+    document.getElementById('drawer-warnings').textContent = job.warnings || 0;
+    document.getElementById('drawer-dependencies').textContent = job.dependencies;
+    const txList = document.getElementById('drawer-transformations');
+    const lineageNode = lineageData && lineageData.nodes
+      ? lineageData.nodes.find(n => n.file === name || n.id === name) : null;
+    const children = lineageNode && lineageNode.children ? lineageNode.children : job.transformations;
+    txList.innerHTML = (children && children.length ? children : ['—']).map(t => '<li>' + esc(t) + '</li>').join('');
+    drawerOverlay.classList.add('visible');
+    jobDrawer.classList.add('open');
+  }
+
+  function closeJobDrawer() {
+    drawerOverlay.classList.remove('visible');
+    jobDrawer.classList.remove('open');
+    drawerJobName = '';
+  }
+
+  document.getElementById('drawer-close-btn').addEventListener('click', closeJobDrawer);
+  drawerOverlay.addEventListener('click', closeJobDrawer);
+  document.getElementById('drawer-preview-btn').addEventListener('click', () => {
+    if (drawerJobName) { previewJob(drawerJobName); closeJobDrawer(); }
+  });
+  document.getElementById('drawer-convert-btn').addEventListener('click', () => {
+    if (drawerJobName) { previewJob(drawerJobName); closeJobDrawer(); }
+  });
+  document.getElementById('drawer-download-btn').addEventListener('click', () => {
+    let file = drawerJobName;
+    if (!generatedFiles[file]) file = activeFile || Object.keys(generatedFiles)[0];
+    if (file && generatedFiles[file]) {
+      selectFile(file);
+      downloadBtn.click();
+    }
+  });
+
+  function filterJobsTable(q) {
+    jobsTableBody.querySelectorAll('tr[data-name]').forEach(row => {
+      row.style.display = !q || row.dataset.name.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  function filterInventoryTable(q) {
+    const tbody = document.getElementById('inventory-table-body');
+    tbody.querySelectorAll('tr[data-name]').forEach(row => {
+      const matchQ = !q || row.dataset.name.toLowerCase().includes(q);
+      const matchF = activeComplexityFilter === 'all' || row.dataset.complexity === activeComplexityFilter;
+      row.style.display = matchQ && matchF ? '' : 'none';
+    });
+  }
+
+  // ── Job table toolbar ──
+  document.getElementById('convert-all-btn').addEventListener('click', () => convertBtn.click());
+  document.getElementById('convert-selected-btn').addEventListener('click', () => {
+    const checked = jobsTableBody.querySelectorAll('input[type=checkbox]:checked');
+    if (checked.length === 1) {
+      const name = checked[0].closest('tr').dataset.name;
+      previewJob(name);
+    } else {
+      convertBtn.click();
+    }
+  });
+
+  document.getElementById('job-select-all').addEventListener('change', e => {
+    jobsTableBody.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.checked = e.target.checked;
+    });
+  });
+
+  // ── Project meta ──
+  function updateProjectMeta(name, status, date) {
+    const subtitle = document.getElementById('header-project-subtitle');
+    document.getElementById('sidebar-project-name').textContent = name || 'No project loaded';
+    document.getElementById('sidebar-conversion-status').textContent = status || 'Ready';
+    if (name) {
+      document.getElementById('header-project').textContent = name;
+      if (subtitle) subtitle.classList.add('hidden');
+    } else {
+      document.getElementById('header-project').textContent = 'No Project Selected';
+      if (subtitle) subtitle.classList.remove('hidden');
+    }
+    if (date) {
+      document.getElementById('sidebar-last-run').textContent = date.toLocaleString();
+    }
+  }
+
+  function updateHeaderBadges(summary) {
+    if (!summary) return;
+    document.getElementById('header-badge-status').style.display = 'inline-flex';
+    document.getElementById('header-badge-files').style.display = 'inline-flex';
+    document.getElementById('header-badge-files').textContent =
+      (summary.files_generated || 0) + ' context file(s)';
+  }
+
+  function complexityLabel(score) {
+    if (score < 35) return 'Low';
+    if (score < 65) return 'Medium';
+    return 'High';
+  }
+
+  function complexityClass(score) {
+    const l = complexityLabel(score).toLowerCase();
+    return l === 'low' ? 'low' : l === 'medium' ? 'medium' : 'high';
+  }
+
+  function invStatusPill(status, convertibility) {
+    if (status === 'converted' && convertibility >= 70)
+      return '<span class="status-pill converted">converted</span>';
+    if (status === 'converted')
+      return '<span class="status-pill needs_review">needs_review</span>';
+    if (status === 'needs_review' || status === 'partial')
+      return '<span class="status-pill needs_review">needs_review</span>';
+    if (status === 'not_started' || status === 'pending')
+      return '<span class="status-pill not_started">not_started</span>';
+    return '<span class="status-pill needs_review">needs_review</span>';
+  }
+
+  function reviewIcon(job) {
+    if (job.status === 'converted' && job.convertibility >= 70) {
+      return '<span class="review-icon ok"><svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>';
+    }
+    if (job.convertibility < 50) {
+      return '<span class="review-icon err"><svg viewBox="0 0 24 24" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>';
+    }
+    return '<span class="review-icon warn"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>';
+  }
+
+  function metricColor(pct, invert) {
+    const v = invert ? 100 - pct : pct;
+    if (v >= 70) return 'var(--success)';
+    if (v >= 40) return 'var(--warning)';
+    return 'var(--error)';
+  }
+
+  function updateSummaryCard(summary, analysis) {
+    if (!summary) return;
+    const accuracy = analysis ? analysis.accuracy_score : (summary.semantic_accuracy_percent || 0);
+    const coverage = analysis ? analysis.coverage_score : (summary.coverage_percent || 0);
+    const complexity = Math.round(100 - coverage);
+    const warnCount = (summary.warnings || []).length + (analysis && analysis.warnings ? analysis.warnings.length : 0);
+
+    const circ = 314.16;
+    const arc = document.getElementById('sc-gauge-arc');
+    arc.style.stroke = gaugeColor(accuracy);
+    arc.setAttribute('stroke-dashoffset', circ - (circ * accuracy / 100));
+    const scoreEl = document.getElementById('sc-gauge-score');
+    scoreEl.textContent = accuracy + '%';
+    scoreEl.style.color = gaugeColor(accuracy);
+
+    const cFill = document.getElementById('sc-complexity-fill');
+    cFill.style.width = complexity + '%';
+    cFill.style.background = metricColor(complexity, true);
+    document.getElementById('sc-complexity-val').textContent = complexity + '%';
+
+    const cvFill = document.getElementById('sc-convertibility-fill');
+    cvFill.style.width = coverage + '%';
+    cvFill.style.background = gaugeColor(coverage);
+    document.getElementById('sc-convertibility-val').textContent = coverage + '%';
+
+    document.getElementById('sc-files').textContent = summary.files_generated || 0;
+    document.getElementById('sc-jobs').textContent = summary.jobs_found || 0;
+    document.getElementById('sc-transformations').textContent = summary.transformations_found || 0;
+
+    const warnWrap = document.getElementById('sc-warnings-wrap');
+    if (warnCount > 0) {
+      warnWrap.style.display = 'inline-flex';
+      document.getElementById('sc-warnings').textContent = warnCount + ' warning' + (warnCount !== 1 ? 's' : '');
+    } else {
+      warnWrap.style.display = 'none';
+    }
+  }
+
+  function statusBadge(status) {
+    if (status === 'converted' || status === 'done') return '<span class="badge badge-green">Converted</span>';
+    if (status === 'partial' || status === 'approximated') return '<span class="badge badge-yellow">Partial</span>';
+    if (status === 'pending') return '<span class="badge badge-gray">Pending</span>';
+    return '<span class="badge badge-red">Failed</span>';
+  }
+
+  function buildProjectInventory(data) {
+    const summary = data.summary || {};
+    const analysis = data.analysis || {};
+    lineageData = data.lineage || null;
+
+    if (data.project_inventory && data.project_inventory.length) {
+      projectInventory = data.project_inventory.map(item => ({
+        name: item.file,
+        displayName: item.name,
+        type: item.type,
+        complexity: item.complexity,
+        convertibility: item.conversion_rate,
+        conversion_rate: item.conversion_rate,
+        status: item.status,
+        dependencies: item.dependencies,
+        description: item.description || '',
+        warnings: 0,
+        criticality: complexityLabel(item.complexity),
+        transformations: [],
+        variables: [],
+        connections: [],
+        childJobs: [],
+      }));
+    } else {
+      projectInventory = _legacyProjectInventory(data);
+    }
+
+    renderJobsTable();
+    renderInventoryPage(summary, analysis);
+    populateLineageSelect();
+  }
+
+  function _legacyProjectInventory(data) {
+    const files = data.files || {};
+    const summary = data.summary || {};
+    const analysis = data.analysis || {};
+    const names = Object.keys(files).sort();
+    const steps = analysis.transformations || [];
+    return names.map((name, i) => {
+      const isJob = name.toLowerCase().includes('job') || i === 0;
+      const complexity = Math.round(100 - (analysis.coverage_score || summary.coverage_percent || 50));
+      const convertibility = analysis.coverage_score || summary.coverage_percent || 0;
+      return {
+        name, displayName: name, type: isJob ? '.kjb' : '.ktr',
+        complexity, convertibility: Math.round(convertibility), conversion_rate: Math.round(convertibility),
+        status: files[name] ? 'converted' : 'pending', dependencies: 0,
+        description: '', warnings: 0, criticality: complexityLabel(complexity),
+        transformations: steps.slice(0, 8).map(t => t.name),
+        variables: [], connections: [], childJobs: [],
+      };
+    });
+  }
+
+  function renderJobsTable() {
+    jobsTableBody.innerHTML = '';
+    projectInventory.forEach(job => {
+      const tr = document.createElement('tr');
+      tr.dataset.name = job.name;
+      tr.innerHTML = `
+        <td><input type="checkbox" data-job="${esc(job.name)}"></td>
+        <td style="font-weight:500">${esc(job.name)}</td>
+        <td>${esc(job.type)}</td>
+        <td>${job.complexity}%</td>
+        <td>${job.convertibility}%</td>
+        <td>${statusBadge(job.status)}
+          <div class="job-progress"><div class="job-progress-fill" style="width:${job.convertibility}%"></div></div>
+        </td>
+        <td><div class="row-actions">
+          <button class="btn btn-ghost btn-xs job-preview" data-name="${esc(job.name)}">Preview</button>
+          <button class="btn btn-ghost btn-xs job-lineage" data-name="${esc(job.name)}">Lineage</button>
+          <button class="btn btn-primary btn-xs job-convert" data-name="${esc(job.name)}">Convert</button>
+        </div></td>`;
+      jobsTableBody.appendChild(tr);
+    });
+
+    jobsTableBody.querySelectorAll('.job-preview').forEach(btn => {
+      btn.addEventListener('click', () => previewJob(btn.dataset.name));
+    });
+    jobsTableBody.querySelectorAll('.job-lineage').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('lineage-job-select').value = btn.dataset.name;
+        navigateTo('lineage');
+        renderLineageGraph();
+      });
+    });
+    jobsTableBody.querySelectorAll('.job-convert').forEach(btn => {
+      btn.addEventListener('click', () => previewJob(btn.dataset.name));
+    });
+  }
+
+  function previewJob(name) {
+    let file = name;
+    if (!generatedFiles[file]) {
+      file = activeFile || Object.keys(generatedFiles)[0] || '';
+    }
+    if (file && generatedFiles[file]) {
+      selectFile(file);
+      outputDrawer.classList.add('visible');
+      navigateTo('upload');
+      outputDrawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function renderInventoryPage(summary, analysis) {
+    const total = projectInventory.length;
+    const converted = projectInventory.filter(j => j.status === 'converted').length;
+    const pending = total - converted;
+    const complexity = analysis ? Math.round(100 - (analysis.coverage_score || 0)) : 0;
+    const convertibility = analysis ? (analysis.coverage_score || 0) : 0;
+
+    const el = id => document.getElementById(id);
+    if (el('inv-total-jobs')) el('inv-total-jobs').textContent = summary ? (summary.jobs_found || total) : total;
+    if (el('inv-total-tx')) el('inv-total-tx').textContent = summary ? (summary.transformations_found || 0) : 0;
+    if (el('inv-converted')) el('inv-converted').textContent = converted;
+    if (el('inv-pending')) el('inv-pending').textContent = pending;
+    if (el('inv-complexity')) el('inv-complexity').textContent = complexity + '%';
+    if (el('inv-convertibility')) el('inv-convertibility').textContent = convertibility + '%';
+
+    document.getElementById('inv-card-title').textContent =
+      'Inventory (' + total + ' file' + (total !== 1 ? 's' : '') + ')';
+
+    const tbody = document.getElementById('inventory-table-body');
+    tbody.innerHTML = '';
+    if (!projectInventory.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--text-muted);font-size:0.8rem;">Upload a project to see inventory</td></tr>';
+      return;
+    }
+
+    let items = projectInventory.slice();
+    if (activeComplexityFilter !== 'all') {
+      items = items.filter(j => complexityClass(j.complexity) === activeComplexityFilter);
+    }
+
+    items.forEach(job => {
+      const tr = document.createElement('tr');
+      tr.dataset.name = job.name;
+      tr.dataset.complexity = complexityClass(job.complexity);
+      const cClass = complexityClass(job.complexity);
+      const cLabel = complexityLabel(job.complexity);
+      const rate = job.conversion_rate != null ? job.conversion_rate : job.convertibility;
+      const displayName = job.displayName || job.name;
+      tr.innerHTML = `
+        <td class="job-name">${esc(displayName)}<div style="font-size:0.65rem;color:var(--text-muted);margin-top:0.15rem;">${esc(job.name)}</div></td>
+        <td><span class="hdr-badge" style="font-size:0.68rem;">${esc(job.type || '—')}</span></td>
+        <td><span class="complexity-pill ${cClass}">${cLabel} ${job.complexity}</span></td>
+        <td>
+          <span style="font-weight:600;font-size:0.75rem;">${rate}%</span>
+          <div class="inv-rate-bar"><div class="inv-rate-fill" style="width:${rate}%;background:${gaugeColor(rate)}"></div></div>
+        </td>
+        <td>${invStatusPill(job.status, rate)}</td>
+        <td style="color:var(--text-muted)">${job.dependencies}</td>
+        <td><button class="btn-open job-open" data-name="${esc(job.name)}" type="button">Open <svg viewBox="0 0 24 24" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button></td>`;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.job-open').forEach(btn => {
+      btn.addEventListener('click', () => openJobDrawer(btn.dataset.name));
+    });
+  }
+
+  // ── Lineage graph ──
+  function populateLineageSelect() {
+    const sel = document.getElementById('lineage-job-select');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Select a job —</option>';
+    const roots = lineageData && lineageData.root_jobs ? lineageData.root_jobs : [];
+    roots.forEach(file => {
+      const opt = document.createElement('option');
+      opt.value = file;
+      const node = lineageData && lineageData.nodes
+        ? lineageData.nodes.find(n => n.id === file || n.file === file) : null;
+      opt.textContent = node ? node.name + ' (' + file + ')' : file;
+      sel.appendChild(opt);
+    });
+    if (cur) sel.value = cur;
+    else if (roots.length) sel.value = roots[0];
+  }
+
+  const LINEAGE_COLORS = { job: '#3B82F6', transformation: '#22C55E', notebook: '#A855F7' };
+
+  function _reachableSubgraph(rootId, nodes, edges) {
+    const nodeIds = new Set([rootId]);
+    const sortedEdges = edges.slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+    let changed = true;
+    while (changed) {
+      changed = false;
+      sortedEdges.forEach(e => {
+        if (nodeIds.has(e.from) && !nodeIds.has(e.to)) {
+          nodeIds.add(e.to);
+          changed = true;
+        }
+      });
+    }
+    return {
+      nodes: nodes.filter(n => nodeIds.has(n.id || n.file)),
+      edges: sortedEdges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to)),
+    };
+  }
+
+  function _layoutLineageTree(rootId, nodesById) {
+    const positions = {};
+    const NODE_W = 150;
+    const NODE_H = 56;
+    const GAP_X = 40;
+    const GAP_Y = 80;
+
+    function measure(nodeId) {
+      const node = nodesById[nodeId];
+      if (!node) return 1;
+      const kids = (node.children || []).filter(id => nodesById[id]);
+      if (!kids.length) return 1;
+      return kids.reduce((s, c) => s + measure(c), 0);
+    }
+
+    function place(nodeId, depth, leftCol) {
+      const node = nodesById[nodeId];
+      if (!node) return leftCol;
+      const kids = (node.children || []).filter(id => nodesById[id]);
+      if (!kids.length) {
+        positions[nodeId] = { x: leftCol * (NODE_W + GAP_X) + NODE_W / 2, y: depth * GAP_Y + 40, w: NODE_W, h: NODE_H };
+        return leftCol + 1;
+      }
+      let col = leftCol;
+      const childCols = [];
+      kids.forEach(k => {
+        childCols.push(col);
+        col = place(k, depth + 1, col);
+      });
+      const x = ((childCols[0] + col - 1) / 2) * (NODE_W + GAP_X) + NODE_W / 2;
+      positions[nodeId] = { x, y: depth * GAP_Y + 40, w: NODE_W, h: NODE_H };
+      return col;
+    }
+
+    place(rootId, 0, 0);
+    return positions;
+  }
+
+  function renderLineageGraph() {
+    const svg = document.getElementById('lineage-graph');
+    const jobFile = document.getElementById('lineage-job-select').value;
+    svg.innerHTML = '';
+
+    if (!lineageData || !lineageData.nodes || !lineageData.nodes.length) {
+      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#94a3b8" font-size="14">Upload and convert a project to view lineage</text>';
+      return;
+    }
+
+    const rootFile = jobFile || (lineageData.root_jobs && lineageData.root_jobs[0]) || lineageData.nodes[0].file;
+    if (!jobFile && rootFile) document.getElementById('lineage-job-select').value = rootFile;
+
+    const subgraph = _reachableSubgraph(rootFile, lineageData.nodes, lineageData.edges || []);
+    const activeNodes = subgraph.nodes;
+    const activeEdges = subgraph.edges;
+
+    if (!activeNodes.length) {
+      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#94a3b8" font-size="14">No execution path found for selected job</text>';
+      return;
+    }
+
+    const nodesById = {};
+    activeNodes.forEach(n => { nodesById[n.id || n.file] = n; });
+
+    const positions = _layoutLineageTree(rootFile, nodesById);
+    const posList = Object.values(positions);
+    const maxX = posList.length ? Math.max(...posList.map(p => p.x)) + 100 : 400;
+    const maxY = posList.length ? Math.max(...posList.map(p => p.y)) + 80 : 300;
+    svg.setAttribute('viewBox', '0 0 ' + maxX + ' ' + maxY);
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', Math.max(420, maxY));
+
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.innerHTML = '<marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#64748B"/></marker>';
+    svg.appendChild(defs);
+
+    (activeEdges || []).forEach(e => {
+      const from = positions[e.from];
+      const to = positions[e.to];
+      if (!from || !to) return;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', from.x);
+      line.setAttribute('y1', from.y + from.h / 2);
+      line.setAttribute('x2', to.x);
+      line.setAttribute('y2', to.y - to.h / 2);
+      line.setAttribute('stroke', '#475569');
+      line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('marker-end', 'url(#arrow)');
+      svg.appendChild(line);
+    });
+
+    Object.keys(positions).forEach(id => {
+      const node = nodesById[id];
+      const pos = positions[id];
+      if (!node || !pos) return;
+
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.classList.add('lineage-node');
+      g.style.cursor = 'pointer';
+
+      const fill = LINEAGE_COLORS[node.type] || LINEAGE_COLORS.job;
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', pos.x - pos.w / 2);
+      rect.setAttribute('y', pos.y - pos.h / 2);
+      rect.setAttribute('width', pos.w);
+      rect.setAttribute('height', pos.h);
+      rect.setAttribute('rx', 8);
+      rect.setAttribute('fill', fill);
+      rect.setAttribute('opacity', '0.9');
+
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      title.setAttribute('x', pos.x);
+      title.setAttribute('y', pos.y - 8);
+      title.setAttribute('text-anchor', 'middle');
+      title.setAttribute('fill', '#fff');
+      title.setAttribute('font-size', '11');
+      title.setAttribute('font-weight', '600');
+      title.setAttribute('font-family', 'Inter, sans-serif');
+      title.textContent = node.name.length > 18 ? node.name.slice(0, 16) + '…' : node.name;
+
+      const meta = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      meta.setAttribute('x', pos.x);
+      meta.setAttribute('y', pos.y + 8);
+      meta.setAttribute('text-anchor', 'middle');
+      meta.setAttribute('class', 'lineage-node-meta');
+      meta.setAttribute('font-family', 'Inter, sans-serif');
+      const typeLabel = node.type === 'job' ? 'Job' : 'Transformation';
+      meta.textContent = typeLabel + ' · ' + (node.conversion_pct || 0) + '% · ' + (node.status || '');
+
+      g.appendChild(rect);
+      g.appendChild(title);
+      g.appendChild(meta);
+      g.addEventListener('click', () => showLineageDetails(node));
+      svg.appendChild(g);
+    });
+  }
+
+  function showLineageDetails(node) {
+    const panel = document.getElementById('lineage-details-panel');
+    const typeLabel = node.type === 'job' ? '.kjb' : '.ktr';
+    const parentName = node.parent || '—';
+    const children = (node.children || []).join(', ') || '—';
+    panel.innerHTML = `
+      <div class="ld-row"><span>Name</span><strong>${esc(node.name)}</strong></div>
+      <div class="ld-row"><span>Type</span><strong>${esc(typeLabel)}</strong></div>
+      <div class="ld-row"><span>Parent</span><strong>${esc(parentName)}</strong></div>
+      <div class="ld-row"><span>Children</span><strong style="max-width:160px;text-align:right;word-break:break-word;">${esc(children)}</strong></div>
+      <div class="ld-row"><span>Complexity</span><strong>${node.complexity || 0}%</strong></div>
+      <div class="ld-row"><span>Conversion Rate</span><strong>${node.conversion_pct || 0}%</strong></div>
+      <div class="ld-row"><span>Status</span><strong>${esc(node.status || '—')}</strong></div>
+      <div class="ld-row"><span>Description</span><strong>${esc(node.description || '—')}</strong></div>`;
+  }
+
+  document.getElementById('lineage-job-select').addEventListener('change', renderLineageGraph);
 
 })();
 </script>
