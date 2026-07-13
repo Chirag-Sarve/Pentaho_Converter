@@ -92,51 +92,67 @@ def test_connection(host: str, token: str) -> DatabricksResult:
     )
 
 
-def _split_block_at_patterns(block: str, patterns: list[re.Pattern[str]]) -> list[str]:
-    """Split *block* at each regex match start, preserving matched content."""
-    split_points = sorted({0} | {m.start() for pat in patterns for m in pat.finditer(block)})
-    chunks: list[str] = []
-    for i, start in enumerate(split_points):
-        end = split_points[i + 1] if i + 1 < len(split_points) else len(block)
-        chunk = block[start:end].rstrip()
-        if chunk:
-            chunks.append(chunk)
-    return chunks
+def _notebook_runner_cell(code: str) -> str:
+    """Build a Databricks-friendly runner cell that uses the notebook ``spark`` session."""
+    if "def run_workflow(" not in code:
+        run_funcs = re.findall(r"^def (run_[A-Za-z0-9_]+)\(", code, re.MULTILINE)
+        if not run_funcs:
+            return ""
+        lines = [
+            "# Run workflow",
+            "# Uses the Databricks notebook ``spark`` session (serverless/all-purpose).",
+            "",
+        ]
+        for func in run_funcs:
+            trans_name = func[4:] if func.startswith("run_") else func
+            result_var = f"result_{trans_name}"
+            lines.append(f"print('Running transformation: {trans_name}')")
+            lines.append(f"{result_var} = {func}(spark)")
+        lines.append("print('Workflow completed successfully.')")
+        return "\n".join(lines)
+
+    return "\n".join([
+        "# Run workflow",
+        "# Uses the Databricks notebook ``spark`` session (serverless/all-purpose).",
+        "# Do not call main() — it may create an invalid Spark Connect session.",
+        "",
+        "run_workflow(spark)",
+    ])
 
 
 def to_notebook_source(code: str) -> str:
-    """Convert a flat generated .py file into Databricks notebook source format."""
+    """Convert a flat generated .py file into Databricks notebook source format.
+
+    Notebook layout:
+      1. Imports / config (everything before the first ``def run_*``)
+      2. One cell per ``run_*`` transformation function (keeps ``return`` valid)
+      3. A runner cell that calls ``run_*(spark)`` using the platform session
+
+    ``main()`` and ``if __name__`` are omitted from notebooks — they are for
+    local ``python script.py`` execution only.
+    """
     header = "# Databricks notebook source"
     cell_sep = "\n\n# COMMAND ----------\n\n"
 
-    pentaho_step_pattern = re.compile(r'(?m)^    # Step: ')
-    run_func_pattern = re.compile(r'(?m)^def run_[A-Za-z0-9_]+\(')
-    main_func_pattern = re.compile(r'(?m)^def main\(\):')
-    entrypoint_pattern = re.compile(r'(?m)^if __name__ == ["\']__main__["\']:')
+    run_func_pattern = re.compile(r"(?m)^def run_[A-Za-z0-9_]+\(")
+    main_func_pattern = re.compile(r"(?m)^def main\(\):")
+
+    main_match = main_func_pattern.search(code)
+    notebook_body = code[: main_match.start()].rstrip() if main_match else code.rstrip()
 
     parts: list[str] = []
-    split_patterns = [
-        run_func_pattern,
-        main_func_pattern,
-        pentaho_step_pattern,
-        entrypoint_pattern,
-    ]
     split_points = sorted(
-        {0} | {m.start() for pat in split_patterns for m in pat.finditer(code)}
+        {0} | {m.start() for m in run_func_pattern.finditer(notebook_body)}
     )
     for i, start in enumerate(split_points):
-        end = split_points[i + 1] if i + 1 < len(split_points) else len(code)
-        chunk = code[start:end].rstrip()
-        if not chunk:
-            continue
-        if run_func_pattern.match(chunk) or main_func_pattern.match(chunk):
-            inner = _split_block_at_patterns(
-                chunk,
-                [pentaho_step_pattern, entrypoint_pattern],
-            )
-            parts.extend(inner)
-        else:
+        end = split_points[i + 1] if i + 1 < len(split_points) else len(notebook_body)
+        chunk = notebook_body[start:end].rstrip()
+        if chunk:
             parts.append(chunk)
+
+    runner = _notebook_runner_cell(code)
+    if runner:
+        parts.append(runner)
 
     if not parts:
         return header + "\n" + code

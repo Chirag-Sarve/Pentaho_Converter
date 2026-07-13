@@ -41,7 +41,36 @@ _STRUCTURED_STEP_TYPES = frozenset({
     "tableinput",
     "databaselookup",
     "streamlookup",
+    "formula",
+    "ifnull",
+    "iffieldvaluenull",
 })
+
+_KNOWN_GROUP_AGG_TYPES = frozenset({
+    "SUM",
+    "AVG",
+    "AVERAGE",
+    "MIN",
+    "MAX",
+    "COUNT",
+    "COUNT_ALL",
+    "COUNT_ANY",
+    "COUNT_DISTINCT",
+    "FIRST",
+    "LAST",
+    "MEDIAN",
+    "PERCENTILE",
+    "STDDEV",
+    "STD_DEV",
+})
+
+
+def _normalize_agg_token(raw: str) -> str:
+    return (raw or "").strip().upper().replace(" ", "_")
+
+
+def _is_known_aggregate_type(raw: str) -> bool:
+    return _normalize_agg_token(raw) in _KNOWN_GROUP_AGG_TYPES
 
 
 def _text(elem: ET.Element | None, default: str = "") -> str:
@@ -455,6 +484,50 @@ class RankConfig:
     rank_field: str = "rank"
 
 
+def _parse_group_by_aggregate_field(field_el: ET.Element) -> GroupByField | None:
+    """Parse one Group By aggregate field from Pentaho XML (both export formats)."""
+    name = _child_text(field_el, "name")
+    agg_raw = _child_text(field_el, "aggregate")
+    type_raw = _child_text(field_el, "type")
+    subject = _child_text(field_el, "subject")
+    valuefield = _child_text(field_el, "valuefield")
+
+    if not agg_raw:
+        return None
+
+    agg_is_type = _is_known_aggregate_type(agg_raw)
+    type_is_agg = _is_known_aggregate_type(type_raw)
+
+    if agg_is_type and name:
+        output_name = name
+        agg_type = agg_raw
+        source = subject or valuefield or name
+        value_type = type_raw if type_raw and not type_is_agg else "String"
+    elif not agg_is_type and type_is_agg:
+        output_name = agg_raw
+        agg_type = type_raw
+        source = subject or valuefield or output_name
+        value_type = "String"
+    elif name:
+        output_name = name
+        agg_type = agg_raw if agg_is_type else (type_raw or "SUM")
+        source = subject or valuefield or name
+        value_type = type_raw if type_raw and not type_is_agg else "String"
+    else:
+        return None
+
+    if not output_name or not agg_type:
+        return None
+
+    return GroupByField(
+        name=output_name,
+        aggregate=_normalize_agg_token(agg_type),
+        subject=source,
+        type_name=value_type or "String",
+        valuefield=valuefield,
+    )
+
+
 def parse_group_by_fields(step_el: ET.Element) -> tuple[list[str], list[GroupByField]]:
     """Return (group_key_names, aggregate_field_specs) from a Group By step."""
     group_keys: list[str] = []
@@ -473,38 +546,19 @@ def parse_group_by_fields(step_el: ET.Element) -> tuple[list[str], list[GroupByF
             continue
         for field_el in container.findall("field"):
             name = _child_text(field_el, "name")
-            if not name:
-                continue
-            agg = _child_text(field_el, "aggregate").upper()
-            if agg:
-                subject = _child_text(field_el, "subject") or name
-                aggregates.append(
-                    GroupByField(
-                        name=name,
-                        aggregate=agg,
-                        subject=subject,
-                        type_name=_child_text(field_el, "type", "String"),
-                        valuefield=_child_text(field_el, "valuefield"),
-                    )
-                )
-            elif container_tag == "fields" and not _child_text(field_el, "aggregate"):
+            parsed = _parse_group_by_aggregate_field(field_el)
+            if parsed is not None:
+                aggregates.append(parsed)
+            elif container_tag == "fields" and name and not _child_text(field_el, "aggregate"):
                 if name not in group_keys:
                     group_keys.append(name)
 
     if not group_keys and not aggregates:
         for field_el in (step_el.find("fields") or ET.Element("x")).findall("field"):
             name = _child_text(field_el, "name")
-            agg = _child_text(field_el, "aggregate").upper()
-            if name and agg:
-                subject = _child_text(field_el, "subject") or name
-                aggregates.append(
-                    GroupByField(
-                        name=name,
-                        aggregate=agg,
-                        subject=subject,
-                        valuefield=_child_text(field_el, "valuefield"),
-                    )
-                )
+            parsed = _parse_group_by_aggregate_field(field_el)
+            if parsed is not None:
+                aggregates.append(parsed)
             elif name:
                 group_keys.append(name)
 
@@ -820,6 +874,60 @@ def parse_merge_join_config(step_el: ET.Element) -> dict[str, Any]:
     return _metadata_value(cfg)
 
 
+def parse_formula_config(step_el: ET.Element) -> dict[str, Any]:
+    """Parse Formula step metadata including nested formula_string entries."""
+    formulas: list[dict[str, str]] = []
+    for formula_el in step_el.findall("formula"):
+        field_name = _child_text(formula_el, "field_name")
+        formula_string = (
+            _child_text(formula_el, "formula_string")
+            or _child_text(formula_el, "formula")
+        )
+        if field_name or formula_string:
+            formulas.append({
+                "field_name": field_name or "formula_result",
+                "formula": unescape_xml(formula_string),
+                "value_type": _child_text(formula_el, "value_type"),
+            })
+
+    if not formulas:
+        flat_formula = unescape_xml(_child_text(step_el, "formula"))
+        flat_field = _child_text(step_el, "field_name")
+        if flat_formula:
+            formulas.append({
+                "field_name": flat_field or "formula_result",
+                "formula": flat_formula,
+                "value_type": _child_text(step_el, "value_type"),
+            })
+
+    primary = formulas[0] if formulas else {}
+    return {
+        "formulas": formulas,
+        "field_name": primary.get("field_name", ""),
+        "formula": primary.get("formula", ""),
+        "value_type": primary.get("value_type", ""),
+    }
+
+
+def parse_ifnull_config(step_el: ET.Element) -> dict[str, Any]:
+    """Parse IfNull / If Field Value Is Null replacement field metadata."""
+    replacements: list[dict[str, str]] = []
+    fields_el = step_el.find("fields")
+    if fields_el is not None:
+        for field_el in fields_el.findall("field"):
+            name = _child_text(field_el, "name")
+            if not name:
+                continue
+            value = _child_text(field_el, "value") or _child_text(field_el, "replacement")
+            replacements.append({"name": name, "value": value})
+
+    return {
+        "replacements": replacements,
+        "replace_all": _child_text(step_el, "replaceAllByValue"),
+        "select_fields": _bool_from_yn(_child_text(step_el, "selectFields")),
+    }
+
+
 def parse_group_by_config(step_el: ET.Element) -> dict[str, Any]:
     """Parse Group By step metadata."""
     group_keys, aggregates = parse_group_by_fields(step_el)
@@ -1015,6 +1123,9 @@ def parse_step_metadata(step_el: ET.Element, step_type: str) -> dict[str, Any]:
         "tableinput": parse_table_input_config,
         "databaselookup": parse_database_lookup_config,
         "streamlookup": parse_database_lookup_config,
+        "formula": parse_formula_config,
+        "ifnull": parse_ifnull_config,
+        "iffieldvaluenull": parse_ifnull_config,
     }
     parser = parsers.get(st)
     if parser is None:

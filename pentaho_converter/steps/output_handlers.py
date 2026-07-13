@@ -2,8 +2,17 @@
 
 from __future__ import annotations
 
+from ..generation_config import GenerationConfig
 from ..lineage import substitute_pentaho_variables
+from ..table_names import table_write_lines
 from .base import BaseStepHandler, StepContext
+
+
+def _generation_config(context: StepContext) -> GenerationConfig:
+    cfg = context.extra.get("generation_config")
+    if isinstance(cfg, GenerationConfig):
+        return cfg
+    return GenerationConfig.defaults()
 
 
 class TableOutputHandler(BaseStepHandler):
@@ -17,13 +26,22 @@ class TableOutputHandler(BaseStepHandler):
         in_df = context.input_df_name() or context.output_df_name()
         schema = self._attr(context, "schema", "")
         table = self._attr(context, "table", "")
-        full = f"{schema}.{table}" if schema and table else table or "target_table"
-
         out_var = context.output_df_name()
-        lines = [f"# Table Output: {step.name}"]
-        lines.append(f"{out_var} = {in_df}")
-        lines.append(f"{out_var}.write.format('delta').mode('overwrite').saveAsTable({full!r})")
-        return lines, "converted" if table else "converted"
+        if not table:
+            lines = [f"# Table Output: {step.name}"]
+            lines.append(f"{out_var} = {in_df}")
+            lines.append(f"{out_var}.write.format('delta').mode('overwrite').saveAsTable('target_table')")
+            return lines, "converted"
+
+        lines = table_write_lines(
+            out_var=out_var,
+            in_df=in_df,
+            table=table,
+            source_schema=schema,
+            step_name=step.name,
+            config=_generation_config(context),
+        )
+        return lines, "converted"
 
 
 class TextFileOutputHandler(BaseStepHandler):

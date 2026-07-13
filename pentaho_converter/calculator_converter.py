@@ -142,6 +142,25 @@ def _col(field_name: str) -> str:
     return f'col("{field_name}")'
 
 
+def _operand(field_name: str, value_type: str = "") -> str:
+    """Resolve a calculator operand as a column reference or literal."""
+    if not field_name:
+        return "lit(None)"
+    if value_type:
+        lit_expr = _lit_or_col(field_name, value_type)
+        if lit_expr != f"lit({field_name!r})":
+            return lit_expr
+    try:
+        if "." in field_name:
+            float(field_name)
+            return f"lit({float(field_name)})"
+        int(field_name)
+        return f"lit({int(field_name)})"
+    except ValueError:
+        pass
+    return _col(field_name)
+
+
 def _lit_or_col(value: str, value_type: str = "") -> str:
     if not value:
         return "lit(None)"
@@ -286,9 +305,9 @@ def convert_calculation_result(calc: CalculationSpec) -> CalculationConvertResul
         )
 
     calc_type = _normalize_calc_type(calc.calc_type)
-    a = _col(calc.field_a)
-    b = _col(calc.field_b)
-    c = _col(calc.field_c)
+    a = _operand(calc.field_a, calc.value_type)
+    b = _operand(calc.field_b, calc.value_type)
+    c = _operand(calc.field_c, calc.value_type)
     expr = _build_calculation_expr(calc, calc_type, a, b, c)
     if expr.startswith(_UNSUPPORTED_MARKER):
         unsupported_type = expr[len(_UNSUPPORTED_MARKER):]

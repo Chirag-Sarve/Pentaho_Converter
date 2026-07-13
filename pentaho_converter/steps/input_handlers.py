@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from ..lineage import substitute_pentaho_variables
 from ..metadata_propagation import get_converter_metadata
+from ..path_utils import spark_load_path_expr
+from ..schema_utils import fields_to_schema_ddl
 from ..text_file_input_converter import convert_text_file_input_step
 from .base import BaseStepHandler, StepContext
 
@@ -46,16 +48,35 @@ class CsvInputHandler(BaseStepHandler):
     def generate_code(self, context: StepContext) -> tuple[list[str], str]:
         step = context.step
         out_var = context.output_df_name()
-        filename = self._attr(context, "filename", "") or self._attr(context, "file", "")
+        params = context.transformation.parameters
+        raw_path = self._attr(context, "filename", "") or self._attr(context, "file", "")
+        filename = substitute_pentaho_variables(raw_path, params)
         delimiter = self._attr(context, "separator", ",") or ","
         header = self._attr(context, "header", "Y").upper() == "Y"
+        enclosure = self._attr(context, "enclosure", "") or self._attr(context, "quote", "")
+
+        metadata = get_converter_metadata(context)
+        fields = list(metadata.get("fields") or [])
+        if not fields:
+            fields = [
+                {"name": f.name, "type": f.type_name}
+                for f in self._fields(context)
+                if f.name
+            ]
+        schema_ddl = fields_to_schema_ddl(fields)
 
         lines = [f"# CSV Input: {step.name}"]
         lines.append(f"{out_var} = (")
-        lines.append(f"    spark.read.format('csv')")
+        lines.append("    spark.read.format('csv')")
         lines.append(f"    .option('header', {header!r})")
-        lines.append(f"    .option('delimiter', {delimiter!r})")
-        lines.append(f"    .load({filename!r})")
+        lines.append(f"    .option('sep', {delimiter!r})")
+        if enclosure:
+            lines.append(f"    .option('quote', {enclosure!r})")
+        if schema_ddl:
+            lines.append("    .option('inferSchema', False)")
+            lines.append(f"    .schema({schema_ddl!r})")
+        load_path = spark_load_path_expr(filename)
+        lines.append(f"    .load({load_path})")
         lines.append(")")
         return lines, "converted" if filename else "converted"
 

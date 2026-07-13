@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>Complex_Business_Logic</name>
+    <description>Sample transformation covering common Pentaho steps (excluding SelectValues)</description>
+    <parameters>
+      <parameter>
+        <name>BATCH_DATE</name>
+        <default_value>2026-07-01</default_value>
+      </parameter>
+      <parameter>
+        <name>MIN_ORDER_AMOUNT</name>
+        <default_value>100</default_value>
+      </parameter>
+      <parameter>
+        <name>DISCOUNT_RATE</name>
+        <default_value>0.05</default_value>
+      </parameter>
+    </parameters>
+  </info>
+  <order>
+    <hop><from>Table input orders</from><to>Filter active orders</to><enabled>Y</enabled></hop>
+    <hop><from>Filter active orders</from><to>Replace null amounts</to><enabled>Y</enabled></hop>
+    <hop><from>Replace null amounts</from><to>Add batch constants</to><enabled>Y</enabled></hop>
+    <hop><from>Add batch constants</from><to>Calculate line metrics</to><enabled>Y</enabled></hop>
+    <hop><from>Calculate line metrics</from><to>Apply discount formula</to><enabled>Y</enabled></hop>
+    <hop><from>Apply discount formula</from><to>Normalize customer name</to><enabled>Y</enabled></hop>
+    <hop><from>Normalize customer name</from><to>Fix product codes</to><enabled>Y</enabled></hop>
+    <hop><from>Fix product codes</from><to>Sort by order date</to><enabled>Y</enabled></hop>
+    <hop><from>Sort by order date</from><to>Merge join with products</to><enabled>Y</enabled></hop>
+    <hop><from>CSV product prices</from><to>Merge join with products</to><enabled>Y</enabled></hop>
+    <hop><from>Merge join with products</from><to>Stream lookup regions</to><enabled>Y</enabled></hop>
+    <hop><from>Region reference grid</from><to>Stream lookup regions</to><enabled>Y</enabled></hop>
+    <hop><from>Stream lookup regions</from><to>Aggregate by region</to><enabled>Y</enabled></hop>
+    <hop><from>Aggregate by region</from><to>Table output summary</to><enabled>Y</enabled></hop>
+    <hop><from>Aggregate by region</from><to>Text file audit log</to><enabled>Y</enabled></hop>
+  </order>
+
+  <step>
+    <name>CSV product prices</name>
+    <type>CsvInput</type>
+    <filename>/data/inbound/product_prices.csv</filename>
+    <separator>,</separator>
+    <header>Y</header>
+  </step>
+
+  <step>
+    <name>Region reference grid</name>
+    <type>DataGrid</type>
+    <fields>
+      <field><name>region_code</name><type>String</type></field>
+      <field><name>region_name</name><type>String</type></field>
+      <field><name>region_tier</name><type>String</type></field>
+    </fields>
+    <data>
+      <line><item>NA</item><item>North America</item><item>T1</item></line>
+      <line><item>EU</item><item>Europe</item><item>T1</item></line>
+      <line><item>APAC</item><item>Asia Pacific</item><item>T2</item></line>
+      <line><item>LATAM</item><item>Latin America</item><item>T2</item></line>
+      <line><item>MEA</item><item>Middle East Africa</item><item>T3</item></line>
+    </data>
+  </step>
+
+  <step>
+    <name>Table input orders</name>
+    <type>TableInput</type>
+    <connection>WH</connection>
+    <sql>SELECT
+  o.order_id,
+  o.customer_id,
+  o.customer_name,
+  o.product_code,
+  o.quantity,
+  o.unit_price,
+  o.order_amount,
+  o.order_date,
+  o.status,
+  o.region_code
+FROM staging.customer_orders o
+WHERE o.order_date &gt;= '2026-07-01'</sql>
+  </step>
+
+  <step>
+    <name>Filter active orders</name>
+    <type>FilterRows</type>
+    <compare>
+      <condition>
+        <negated>N</negated>
+        <conditions>
+          <condition>
+            <negated>N</negated>
+            <leftvalue>status</leftvalue>
+            <function>=</function>
+            <value><type>String</type><text>ACTIVE</text></value>
+          </condition>
+          <condition>
+            <negated>N</negated>
+            <operator>AND</operator>
+            <leftvalue>order_amount</leftvalue>
+            <function>&gt;=</function>
+            <value><type>Number</type><text>100</text></value>
+          </condition>
+          <condition>
+            <negated>N</negated>
+            <operator>AND</operator>
+            <leftvalue>quantity</leftvalue>
+            <function>&gt;</function>
+            <value><type>Integer</type><text>0</text></value>
+          </condition>
+        </conditions>
+      </condition>
+    </compare>
+  </step>
+
+  <step>
+    <name>Replace null amounts</name>
+    <type>ReplaceNull</type>
+    <replace_value>0</replace_value>
+    <fields>
+      <field><name>order_amount</name><type>Number</type></field>
+      <field><name>unit_price</name><type>Number</type></field>
+      <field><name>quantity</name><type>Integer</type></field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Add batch constants</name>
+    <type>Constant</type>
+    <fields>
+      <field><name>batch_date</name><type>Date</type><value>2026-07-01</value></field>
+      <field><name>source_system</name><type>String</type><value>ERP_ORDERS</value></field>
+      <field><name>is_premium</name><type>Boolean</type><value>Y</value></field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Calculate line metrics</name>
+    <type>Calculator</type>
+    <calculation>
+      <field_name>line_total</field_name>
+      <calc_type>MULTIPLY</calc_type>
+      <field_a>quantity</field_a>
+      <field_b>unit_price</field_b>
+      <value_type>Number</value_type>
+    </calculation>
+    <calculation>
+      <field_name>discount_amount</field_name>
+      <calc_type>MULTIPLY</calc_type>
+      <field_a>line_total</field_a>
+      <field_b>unit_price</field_b>
+      <value_type>Number</value_type>
+    </calculation>
+    <calculation>
+      <field_name>net_revenue</field_name>
+      <calc_type>SUBTRACT</calc_type>
+      <field_a>line_total</field_a>
+      <field_b>discount_amount</field_b>
+      <value_type>Number</value_type>
+    </calculation>
+    <calculation>
+      <field_name>customer_name_upper</field_name>
+      <calc_type>UPPER</calc_type>
+      <field_a>customer_name</field_a>
+      <value_type>String</value_type>
+    </calculation>
+    <calculation>
+      <field_name>name_length</field_name>
+      <calc_type>LENGTH</calc_type>
+      <field_a>customer_name</field_a>
+      <value_type>Integer</value_type>
+    </calculation>
+  </step>
+
+  <step>
+    <name>Apply discount formula</name>
+    <type>Formula</type>
+    <field_name>adjusted_net_revenue</field_name>
+    <formula>[net_revenue] - ([discount_amount] * 0.05)</formula>
+  </step>
+
+  <step>
+    <name>Normalize customer name</name>
+    <type>StringOperations</type>
+    <fields>
+      <field>
+        <in_stream_name>customer_name</in_stream_name>
+        <out_stream_name>customer_name_clean</out_stream_name>
+        <trim_type>both</trim_type>
+        <lower_upper>upper</lower_upper>
+      </field>
+      <field>
+        <in_stream_name>product_code</in_stream_name>
+        <out_stream_name>product_code_sub</out_stream_name>
+        <cut_from>1</cut_from>
+        <cut_to>10</cut_to>
+      </field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Fix product codes</name>
+    <type>ReplaceInString</type>
+    <in_stream_name>product_code</in_stream_name>
+    <out_stream_name>product_code_std</out_stream_name>
+    <replace_string>PRD-</replace_string>
+    <replace_by_string>PROD-</replace_by_string>
+  </step>
+
+  <step>
+    <name>Sort by order date</name>
+    <type>SortRows</type>
+    <fields>
+      <field><name>order_date</name><type>Date</type><ascending>Y</ascending></field>
+      <field><name>product_code_std</name><type>String</type><ascending>Y</ascending></field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Merge join with products</name>
+    <type>MergeJoin</type>
+    <join_type>INNER</join_type>
+    <step1>Sort by order date</step1>
+    <step2>CSV product prices</step2>
+    <keys_1>
+      <key>product_code_std</key>
+    </keys_1>
+    <keys_2>
+      <key>product_code</key>
+    </keys_2>
+  </step>
+
+  <step>
+    <name>Stream lookup regions</name>
+    <type>StreamLookup</type>
+    <lookup>
+      <key>
+        <name>region_code</name>
+        <field>region_code</field>
+      </key>
+    </lookup>
+  </step>
+
+  <step>
+    <name>Aggregate by region</name>
+    <type>GroupBy</type>
+    <group>
+      <field><name>region_name</name></field>
+      <field><name>region_tier</name></field>
+    </group>
+    <fields>
+      <field>
+        <name>total_net_revenue</name>
+        <type>Number</type>
+        <aggregate>SUM</aggregate>
+        <subject>adjusted_net_revenue</subject>
+      </field>
+      <field>
+        <name>order_count</name>
+        <type>Integer</type>
+        <aggregate>COUNT</aggregate>
+        <subject>order_id</subject>
+      </field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Table output summary</name>
+    <type>TableOutput</type>
+    <schema>analytics</schema>
+    <table>fact_order_summary</table>
+  </step>
+
+  <step>
+    <name>Text file audit log</name>
+    <type>TextFileOutput</type>
+    <filename>/data/outbound/order_summary_audit.txt</filename>
+    <separator>,</separator>
+    <header>Y</header>
+    <encoding>UTF-8</encoding>
+    <enclosure>"</enclosure>
+  </step>
+</transformation>

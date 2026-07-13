@@ -218,6 +218,25 @@ class TestExtendedSteps(unittest.TestCase):
         self.assertIn('col("price")', code)
         self.assertIn('col("qty")', code)
 
+    def test_formula_nested_if_uses_otherwise(self):
+        xml = """
+        <step>
+          <formula>
+            <field_name>order_tier</field_name>
+            <formula_string>IF([net_amount]&gt;500;"Premium";IF([net_amount]&gt;200;"Standard";"Basic"))</formula_string>
+          </formula>
+        </step>
+        """
+        outcome = self.registry.convert_step("Formula", _ctx(xml, "Formula", "Formula"))
+        code = "\n".join(outcome.code_lines)
+        self.assertIn(".otherwise(", code)
+        self.assertIn(
+            'when(col("net_amount")>500, "Premium").otherwise('
+            'when(col("net_amount")>200, "Standard").otherwise("Basic"))',
+            code,
+        )
+        self.assertGreaterEqual(outcome.semantic_score, 0.9)
+
     def test_select_values_rename(self):
         xml = """<step><fields>
           <field><name>id</name><rename>customer_id</rename></field></fields></step>"""
@@ -278,6 +297,24 @@ class TestExtendedSteps(unittest.TestCase):
         self.assertIn('col("amount")', code)
         self.assertIn("total_amount", code)
 
+    def test_group_by_max_min_uses_spark_functions(self):
+        xml = """
+        <step>
+          <group><field><name>department</name></field></group>
+          <fields>
+            <field><aggregate>MAX</aggregate><subject>total_comp</subject>
+              <name>max_total_comp</name></field>
+            <field><aggregate>MIN</aggregate><subject>total_comp</subject>
+              <name>min_total_comp</name></field>
+          </fields>
+        </step>
+        """
+        outcome = self.registry.convert_step("GroupBy", _ctx(xml, "GroupBy", "GB"))
+        code = "\n".join(outcome.code_lines)
+        self.assertIn("_max(col(", code)
+        self.assertIn("_min(col(", code)
+        self.assertNotIn("max(col(", code.replace("_max(col(", ""))
+
     def test_calculator_remove_fields(self):
         xml = """
         <step><calculation>
@@ -294,6 +331,25 @@ class TestExtendedSteps(unittest.TestCase):
         xml = "<step><file>/data/in.csv</file><separator>;</separator></step>"
         outcome = self.registry.convert_step("CsvInput", _ctx(xml, "CsvInput", "CSV", with_input=False))
         self.assertIn("/data/in.csv", "\n".join(outcome.code_lines))
+
+    def test_csv_input_applies_field_schema(self):
+        xml = """
+        <step>
+          <filename>/data/customers.csv</filename>
+          <separator>,</separator>
+          <header>Y</header>
+          <fields>
+            <field><name>customer_id</name><type>Integer</type></field>
+            <field><name>order_amount</name><type>Number</type></field>
+          </fields>
+        </step>
+        """
+        outcome = self.registry.convert_step("CsvInput", _ctx(xml, "CsvInput", "CSV", with_input=False))
+        code = "\n".join(outcome.code_lines)
+        self.assertIn(".schema(", code)
+        self.assertIn("customer_id INT", code)
+        self.assertIn("order_amount DOUBLE", code)
+        self.assertIn("inferSchema", code)
 
 
 if __name__ == "__main__":

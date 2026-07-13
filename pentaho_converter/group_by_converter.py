@@ -148,10 +148,10 @@ def _apply_output_cast(expr: str, agg_meta: dict[str, Any], metadata: dict[str, 
 
 def _aggregate_core_expr(agg_type: str, column: str) -> str | None:
     mapping: dict[str, str] = {
-        "SUM": f"sum({column})",
+        "SUM": f"_sum({column})",
         "AVG": f"avg({column})",
-        "MIN": f"min({column})",
-        "MAX": f"max({column})",
+        "MIN": f"_min({column})",
+        "MAX": f"_max({column})",
         "COUNT": f"count({column})",
         "COUNT_ALL": "count(lit(1))",
         "COUNT_DISTINCT": f"countDistinct({column})",
@@ -170,7 +170,7 @@ def _aggregate_expr(agg_meta: dict[str, Any], metadata: dict[str, Any]) -> str:
 
     expr = _aggregate_core_expr(agg_type, column)
     if expr is None:
-        expr = f"sum({column})  # unknown aggregate: {agg_type}"
+        expr = f"_sum({column})  # unknown aggregate: {agg_type}"
 
     return _apply_output_cast(expr, agg_meta, metadata)
 
@@ -186,7 +186,7 @@ def _window_aggregate_expr(
 
     core = _aggregate_core_expr(agg_type, column)
     if core is None:
-        core = f"sum({column})  # unknown aggregate: {agg_type}"
+        core = f"_sum({column})  # unknown aggregate: {agg_type}"
 
     expr = f"{core}.over({window_frame})"
     return _apply_output_cast(expr, agg_meta, metadata)

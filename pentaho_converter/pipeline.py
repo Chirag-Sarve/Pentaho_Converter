@@ -10,6 +10,7 @@ from pathlib import Path
 from .code_generator import PySparkCodeGenerator, _safe_filename
 from .dependency_resolver import resolve_project
 from .extractor import ZipExtractionError, cleanup_workspace, extract_zip_to_workspace
+from .generation_config import GenerationConfig
 from .job_parser import parse_job
 from .models import ConversionResult, ConversionStats, PentahoJob, PentahoTransformation
 from .scanner import scan_project
@@ -18,7 +19,14 @@ from .transformation_parser import parse_transformation
 logger = logging.getLogger(__name__)
 
 
-def convert_pentaho_project(zip_data: bytes, project_name: str = "project") -> ConversionResult:
+def convert_pentaho_project(
+    zip_data: bytes,
+    project_name: str = "project",
+    *,
+    catalog: str | None = None,
+    schema: str | None = None,
+    data_dir: str | None = None,
+) -> ConversionResult:
     """Convert a Pentaho project ZIP into PySpark modules.
 
     Parameters
@@ -74,7 +82,14 @@ def convert_pentaho_project(zip_data: bytes, project_name: str = "project") -> C
 
         ordered, primary_job_name = resolve_project(scan, jobs, transformations, logs)
 
-        generator = PySparkCodeGenerator()
+        gen_cfg = GenerationConfig.defaults()
+        if catalog or schema or data_dir:
+            gen_cfg = GenerationConfig(
+                catalog=(catalog or gen_cfg.catalog or "main").strip(),
+                schema=(schema or gen_cfg.schema or "default").strip(),
+                data_dir=(data_dir or gen_cfg.data_dir).strip(),
+            )
+        generator = PySparkCodeGenerator(generation_config=gen_cfg)
 
         primary_job = None
         if primary_job_name:

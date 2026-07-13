@@ -50,9 +50,11 @@ def convert():
         return jsonify({"error": "Uploaded file is empty."}), 400
 
     project_name = filename.rsplit(".", 1)[0]
+    catalog = (request.form.get("catalog") or "").strip() or None
+    schema = (request.form.get("schema") or "").strip() or None
 
     try:
-        result = convert_pentaho_project(zip_data, project_name)
+        result = convert_pentaho_project(zip_data, project_name, catalog=catalog, schema=schema)
     except Exception as exc:
         logger.error("Conversion error: %s\n%s", exc, traceback.format_exc())
         return jsonify({"error": f"Conversion failed: {exc}"}), 500

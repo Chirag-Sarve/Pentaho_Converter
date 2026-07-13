@@ -57,4 +57,5 @@ def public_config() -> dict:
         "managed_tables": _get("DATABRICKS_MANAGED_TABLES", "false").lower() == "true",
         "target_format": _get("DATABRICKS_TARGET_FORMAT", "delta"),
         "notebook_dir": _get("DATABRICKS_NOTEBOOK_DIR", "/Shared/pentaho_converted"),
+        "data_dir": _get("DATABRICKS_DATA_DIR", "/Volumes/main/default/pentaho_data"),
     }

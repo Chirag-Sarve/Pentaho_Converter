@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .lineage import substitute_pentaho_variables
+from .schema_utils import fields_to_schema_ddl
 from .step_context import StepContext
 
 
@@ -118,33 +119,13 @@ def _spark_compression(metadata: dict[str, Any]) -> str:
 
 
 def _spark_cast_type(type_name: str) -> str:
-    t = (type_name or "String").strip().lower()
-    mapping = {
-        "integer": "int",
-        "int": "int",
-        "long": "bigint",
-        "number": "double",
-        "bignumber": "decimal(38,18)",
-        "float": "float",
-        "double": "double",
-        "boolean": "boolean",
-        "date": "date",
-        "timestamp": "timestamp",
-        "datetime": "timestamp",
-        "binary": "binary",
-    }
-    return mapping.get(t, "string")
+    from .schema_utils import spark_cast_type
+
+    return spark_cast_type(type_name)
 
 
 def _spark_schema_ddl(fields: list[dict[str, Any]]) -> str | None:
-    named = [field for field in fields if field.get("name")]
-    if not named:
-        return None
-
-    ddl_parts: list[str] = []
-    for field in named:
-        ddl_parts.append(f"{field['name']} {_spark_cast_type(field.get('type', 'String')).upper()}")
-    return ", ".join(ddl_parts)
+    return fields_to_schema_ddl(fields)
 
 
 def _append_option(lines: list[str], var: str, key: str, value: Any) -> str:

@@ -694,16 +694,49 @@ class IfNullHandler(BaseStepHandler):
         t = step_type.strip().lower().replace(" ", "")
         return t in {"ifnull", "iffieldvaluenull"}
 
+    def _replacement_value(self, raw: str) -> str:
+        value = (raw or "").strip()
+        if not value:
+            return "lit(None)"
+        try:
+            if "." in value:
+                return f"lit({float(value)})"
+            return f"lit({int(value)})"
+        except ValueError:
+            pass
+        if value.upper() in ("TRUE", "FALSE"):
+            return f"lit({value.upper() == 'TRUE'})"
+        return f"lit({value!r})"
+
     def generate_code(self, context: StepContext) -> tuple[list[str], str]:
         in_df = context.input_df_name()
         out_var = context.output_df_name()
+        metadata = get_converter_metadata(context)
+        replacements = metadata.get("replacements") or []
+
+        lines = [f"# If Field Value Is Null: {context.step.name}"]
+        if not in_df:
+            return _passthrough(context, "If Field Value Is Null")
+
+        if replacements:
+            lines.append(f"{out_var} = {in_df}")
+            for item in replacements:
+                field = item.get("name", "")
+                if not field:
+                    continue
+                replace = self._replacement_value(item.get("value", ""))
+                lines.append(
+                    f"{out_var} = {out_var}.withColumn({field!r}, "
+                    f"when(col({field!r}).isNull(), {replace}).otherwise(col({field!r})))"
+                )
+            return lines, "converted"
+
         field = self._attr(context, "field", self._attr(context, "fieldname", ""))
         replace = self._attr(context, "replace", self._attr(context, "value", "''"))
-        lines = [f"# If Field Value Is Null: {context.step.name}"]
-        if in_df and field:
+        if field:
             lines.append(
-                f"{out_var} = {in_df}.withColumn('{field}', "
-                f"when(col('{field}').isNull(), {replace}).otherwise(col('{field}')))"
+                f"{out_var} = {in_df}.withColumn({field!r}, "
+                f"when(col({field!r}).isNull(), {replace}).otherwise(col({field!r})))"
             )
             return lines, "converted"
         return _passthrough(context, "If Field Value Is Null")

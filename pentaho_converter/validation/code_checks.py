@@ -55,13 +55,15 @@ def validate_python_fragment(code_lines: list[str]) -> tuple[bool, list[str]]:
             "year", "month", "dayofmonth", "dayofweek", "weekofyear",
             "current_date", "current_timestamp",
             "row_number", "rank", "dense_rank", "monotonically_increasing_id",
-            "countDistinct", "first", "last", "levenshtein", "sum", "avg",
+            "countDistinct", "first", "last", "levenshtein", "sum", "_sum", "avg", "max", "_max", "min", "_min",
             "Window", "True", "False", "None", "int", "float", "str",
+            "TARGET_CATALOG", "TARGET_SCHEMA",
         }
         allowed.update(name for name in dir(_builtins) if not name.startswith("_"))
         bad = [n for n in undefined if n not in allowed and not n.startswith("df_")
                and not n.startswith("_w_") and not n.startswith("_lkp_")
-               and not n.startswith("_empty_flag_") and not n.startswith("_sync_")]
+               and not n.startswith("_empty_flag_") and not n.startswith("_sync_")
+               and not n.startswith("_target_")]
         if bad:
             errors.append(f"Possibly undefined names in generated code: {', '.join(sorted(bad)[:5])}")
 

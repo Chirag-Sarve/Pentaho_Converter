@@ -256,25 +256,40 @@ class FormulaHandler(BaseStepHandler):
     def can_handle(self, step_type: str) -> bool:
         return step_type.strip().lower() in self._TYPES
 
+    def _formula_entries(self, context: StepContext) -> list[dict[str, str]]:
+        metadata = get_converter_metadata(context)
+        formulas = metadata.get("formulas") or []
+        if formulas:
+            return formulas
+        formula = metadata.get("formula") or self._attr(context, "formula", "")
+        field_name = metadata.get("field_name") or self._attr(context, "field_name", "formula_result")
+        if formula:
+            return [{"field_name": field_name, "formula": formula}]
+        return []
+
     def generate_code(self, context: StepContext) -> tuple[list[str], str]:
         step = context.step
         in_df = context.input_df_name()
         out_var = context.output_df_name()
-        formula = self._attr(context, "formula", "")
-        field_name = self._attr(context, "field_name", "formula_result")
+        entries = self._formula_entries(context)
 
         lines = [f"# Formula: {step.name}"]
-        if in_df and formula:
-            lines.append(
-                f"{out_var} = {in_df}.withColumn({field_name!r}, {convert_formula(formula)})"
-            )
-            return lines, "converted"
-        elif in_df:
-            lines.append(f"{out_var} = {in_df}")
-            return lines, "converted"
-        else:
+        if not in_df:
             lines.append(f"{out_var} = spark.createDataFrame([], '_placeholder STRING')")
             return lines, "converted"
+        if not entries:
+            lines.append(f"{out_var} = {in_df}")
+            return lines, "converted"
+
+        lines.append(f"{out_var} = {in_df}")
+        for entry in entries:
+            field_name = entry.get("field_name") or "formula_result"
+            formula = entry.get("formula") or ""
+            if formula:
+                lines.append(
+                    f"{out_var} = {out_var}.withColumn({field_name!r}, {convert_formula(formula)})"
+                )
+        return lines, "converted"
 
 
 class ReplaceNullHandler(BaseStepHandler):

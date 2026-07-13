@@ -1260,6 +1260,8 @@
 
       const formData = new FormData();
       formData.append('file', selectedFile);
+      if (setCatalog.value.trim()) formData.append('catalog', setCatalog.value.trim());
+      if (setSchema.value.trim()) formData.append('schema', setSchema.value.trim());
 
       setProgress(30, 'Extracting and scanning project...');
       setStatus('Processing...', 'ready');

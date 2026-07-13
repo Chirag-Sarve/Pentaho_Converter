@@ -2,9 +2,22 @@
 
 from __future__ import annotations
 
+from ..generation_config import GenerationConfig
+from ..table_names import qualify_table_name
 from ..step_xml import _child_text, format_spark_join_on, get_step_element, parse_join_keys
 from .advanced_handlers import _passthrough
 from .base import BaseStepHandler, StepContext
+
+
+def _generation_config(context: StepContext) -> GenerationConfig:
+    cfg = context.extra.get("generation_config")
+    if isinstance(cfg, GenerationConfig):
+        return cfg
+    return GenerationConfig.defaults()
+
+
+def _qualified_table(context: StepContext, schema: str, table: str) -> str:
+    return qualify_table_name(table, schema, config=_generation_config(context))
 
 
 def _write_csv(context: StepContext, filename: str, separator: str = ",") -> tuple[list[str], str]:
@@ -92,7 +105,7 @@ class InsertUpdateHandler(BaseStepHandler):
         out_var = context.output_df_name()
         schema = self._attr(context, "schema", "")
         table = self._attr(context, "table", "target_table")
-        full = f"{schema}.{table}" if schema else table
+        full = _qualified_table(context, schema, table)
         key_fields = [f.name for f in self._fields(context) if f.name]
         lines = [f"# Insert/Update: {context.step.name}"]
         if not in_df:
@@ -122,7 +135,7 @@ class UpdateHandler(BaseStepHandler):
         out_var = context.output_df_name()
         schema = self._attr(context, "schema", "")
         table = self._attr(context, "table", "target_table")
-        full = f"{schema}.{table}" if schema else table
+        full = _qualified_table(context, schema, table)
         key_fields = [f.name for f in self._fields(context) if f.name]
         lines = [f"# Update: {context.step.name}"]
         if not in_df:
@@ -151,7 +164,7 @@ class DeleteHandler(BaseStepHandler):
         out_var = context.output_df_name()
         schema = self._attr(context, "schema", "")
         table = self._attr(context, "table", "target_table")
-        full = f"{schema}.{table}" if schema else table
+        full = _qualified_table(context, schema, table)
         key_fields = [f.name for f in self._fields(context) if f.name]
         lines = [f"# Delete: {context.step.name}"]
         if not in_df:

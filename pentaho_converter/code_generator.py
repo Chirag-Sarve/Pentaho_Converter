@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
+from .generation_config import GenerationConfig
 from .graph import StepDAG
 from .models import (
     ConversionStats,
@@ -31,8 +32,13 @@ def _safe_func_name(name: str) -> str:
 class PySparkCodeGenerator:
     """Generates PySpark modules from parsed Pentaho transformations."""
 
-    def __init__(self, registry: StepRegistry | None = None) -> None:
+    def __init__(
+        self,
+        registry: StepRegistry | None = None,
+        generation_config: GenerationConfig | None = None,
+    ) -> None:
         self.registry = registry or build_default_registry()
+        self.generation_config = generation_config or GenerationConfig.defaults()
 
     def generate_transformation(
         self,
@@ -135,7 +141,10 @@ class PySparkCodeGenerator:
                 step=step,
                 dag=dag,
                 df_variable_map=df_map,
-                extra={"input_columns": sorted(input_cols)},
+                extra={
+                    "input_columns": sorted(input_cols),
+                    "generation_config": self.generation_config,
+                },
             )
             outcome = self.registry.convert_step(step.step_type, ctx)
 
@@ -196,34 +205,77 @@ class PySparkCodeGenerator:
         lines.append("")
         return lines
 
+    @staticmethod
+    def _main_spark_bootstrap(app_name: str) -> list[str]:
+        """Lines that bind a Spark session for local CLI runs (not Databricks notebooks)."""
+        return [
+            "    _owns_spark_session = False",
+            '    _spark = globals().get("spark")',
+            "    if _spark is None:",
+            "        _spark = SparkSession.getActiveSession()",
+            "    if _spark is None:",
+            f"        _spark = SparkSession.builder.appName({app_name!r}).getOrCreate()",
+            "        _owns_spark_session = True",
+        ]
+
+    @staticmethod
+    def _main_spark_shutdown() -> list[str]:
+        return [
+            "        if _owns_spark_session:",
+            "            _spark.stop()",
+        ]
+
+    def _workflow_function_lines(
+        self,
+        ordered_transformations: list[PentahoTransformation],
+        job: PentahoJob | None,
+    ) -> list[str]:
+        """Return ``run_workflow(spark)`` — the Databricks notebook entry point."""
+        job_name = job.name if job else "pentaho_migration"
+        lines = [
+            f"# {'=' * 60}",
+            "# Workflow entry points",
+            f"# {'=' * 60}",
+            "",
+            "def run_workflow(spark):",
+            f'    """Run all Pentaho transformations for job: {job_name}',
+            "",
+            "    Databricks notebook: run_workflow(spark)",
+            '    """',
+        ]
+        last_var: str | None = None
+        for trans in ordered_transformations:
+            func = _safe_func_name(trans.name)
+            var = f"result_{func}"
+            lines.append(f"    print('Running transformation: {trans.name}')")
+            lines.append(f"    {var} = run_{func}(spark)")
+            last_var = var
+        if last_var:
+            lines.append(f"    return {last_var}")
+        lines.append("")
+        return lines
+
     def _main_function_lines(
         self,
         ordered_transformations: list[PentahoTransformation],
         job: PentahoJob | None,
     ) -> list[str]:
-        """Return lines for the orchestrating ``main()`` function."""
+        """Return lines for local CLI ``main()`` (not used in Databricks notebooks)."""
         app_name = job.name if job else "pentaho_migration"
-        lines = [
-            f"# {'=' * 60}",
-            "# Main workflow",
-            f"# {'=' * 60}",
-            "",
-            "def main():",
-            f"    spark = SparkSession.builder.appName({app_name!r}).getOrCreate()",
-            "    try:",
-        ]
-        for trans in ordered_transformations:
-            func = _safe_func_name(trans.name)
-            var = f"result_{func}"
-            label = trans.name
-            lines.append(f"        print('Running transformation: {label}')")
-            lines.append(f"        {var} = run_{func}(spark)")
+        lines = []
+        lines.extend(self._workflow_function_lines(ordered_transformations, job))
         lines.extend([
-            "        print('Workflow completed successfully.')",
-            "    finally:",
-            "        spark.stop()",
-            "",
+            "def main():",
+            '    """Local execution only — use run_workflow(spark) in Databricks notebooks."""',
         ])
+        lines.extend(self._main_spark_bootstrap(app_name))
+        lines.extend([
+            "    try:",
+            "        return run_workflow(_spark)",
+            "    finally:",
+        ])
+        lines.extend(self._main_spark_shutdown())
+        lines.append("")
         return lines
 
     def generate_workflow(
@@ -249,17 +301,16 @@ class PySparkCodeGenerator:
 
         lines.append("")
         lines.append("def main():")
-        lines.append("    spark = SparkSession.builder.appName("
-                     f"{job.name!r}).getOrCreate()")
+        lines.extend(self._main_spark_bootstrap(job.name))
         lines.append("    try:")
         for trans in ordered_transformations:
             func = _safe_func_name(trans.name)
             var = f"result_{func}"
             lines.append(f"        print('Running transformation: {trans.name}')")
-            lines.append(f"        {var} = run_{func}(spark)")
+            lines.append(f"        {var} = run_{func}(_spark)")
         lines.append("        print('Workflow completed successfully.')")
         lines.append("    finally:")
-        lines.append("        spark.stop()")
+        lines.extend(self._main_spark_shutdown())
         lines.append("")
         lines.append("")
         lines.append('if __name__ == "__main__":')
@@ -285,14 +336,14 @@ class PySparkCodeGenerator:
 
         lines.append("")
         lines.append("def main():")
-        lines.append("    spark = SparkSession.builder.appName('pentaho_migration').getOrCreate()")
+        lines.extend(self._main_spark_bootstrap("pentaho_migration"))
         lines.append("    try:")
         for trans in transformations:
             func = _safe_func_name(trans.name)
             lines.append(f"        print('Running: {trans.name}')")
-            lines.append(f"        run_{func}(spark)")
+            lines.append(f"        run_{func}(_spark)")
         lines.append("    finally:")
-        lines.append("        spark.stop()")
+        lines.extend(self._main_spark_shutdown())
         lines.append("")
         lines.append("")
         lines.append('if __name__ == "__main__":')
@@ -301,15 +352,23 @@ class PySparkCodeGenerator:
         logs.append("Generated standalone main workflow (no .kjb found).")
         return "\n".join(lines)
 
-    @staticmethod
-    def _file_header(title: str, source: str) -> list[str]:
+    def _file_header(self, title: str, source: str) -> list[str]:
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        catalog = self.generation_config.catalog or "main"
+        schema = self.generation_config.schema or "default"
+        data_dir = self.generation_config.data_dir or "/Volumes/main/default/pentaho_data"
         return [
             '"""',
             f"Auto-generated PySpark code from Pentaho: {title}",
             f"Source: {source}",
             f"Generated: {ts}",
             '"""',
+            "",
+            "# Databricks Unity Catalog — edit to match your workspace",
+            f"TARGET_CATALOG = {catalog!r}",
+            f"TARGET_SCHEMA = {schema!r}",
+            "# Upload CSV/source files from the Pentaho ZIP to this folder (Unity Volume or DBFS)",
+            f"PENTAHO_DATA_DIR = {data_dir!r}",
             "",
             "from pyspark.sql import SparkSession",
             "from pyspark.sql.window import Window",
@@ -320,6 +379,6 @@ class PySparkCodeGenerator:
             "from pyspark.sql.functions import to_date, to_timestamp, datediff, date_add, add_months",
             "from pyspark.sql.functions import year, month, dayofmonth, dayofweek, weekofyear",
             "from pyspark.sql.functions import row_number, rank, dense_rank, monotonically_increasing_id",
-            "from pyspark.sql.functions import countDistinct, first, last, levenshtein, sum as _sum, avg",
+            "from pyspark.sql.functions import countDistinct, first, last, levenshtein, sum as _sum, avg, max as _max, min as _min",
             "",
         ]

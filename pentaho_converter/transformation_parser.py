@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 _STRUCTURED_NESTED_TAGS = frozenset({
     "calculation",
     "compare",
+    "formula",
+    "group",
     "keys_1",
     "keys_2",
     "lookup",
