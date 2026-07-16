@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..conversion_outcome import StepConversionOutcome, derive_status
+from ..conversion_outcome import StepConversionOutcome, derive_status, format_display_status
 from ..step_context import StepContext
 from ..steps.base import BaseStepHandler
 from ..validation.registry import get_validator
@@ -63,11 +63,18 @@ class LegacyHandlerBridge:
             detail=context.step.name,
             warnings=validation.warnings,
             errors=validation.errors,
+            infos=getattr(validation, "infos", []) or [],
             properties_converted=validation.properties_converted,
             properties_missing=validation.properties_missing,
             output_columns=validation.output_columns,
             syntax_valid=validation.syntax_valid,
             handler_name=context.step.step_type,
+            display_status=format_display_status(
+                status,
+                warnings=validation.warnings,
+                infos=getattr(validation, "infos", []) or [],
+                errors=validation.errors,
+            ),
         )
 
     def validate_semantics(self, context, parsed, code_lines):

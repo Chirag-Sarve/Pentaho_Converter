@@ -201,8 +201,34 @@ def convert_database_lookup_step(
     return_fields = _return_fields_from_metadata(metadata)
     lkp_var = f"_lkp_{out_var}"
     joined_var = f"_joined_{out_var}"
+    connection = (metadata.get("connection") or "").strip()
+
+    if connection:
+        lines.append(f"# preserved.connection={connection!r}")
+        lines.append(
+            f"# WARNING: DatabaseLookup '{step_name}': connection {connection!r} "
+            "is not opened via JDBC here — reading from Spark catalog "
+            f"({qualified_table!r}). Map the Pentaho connection to a UC table "
+            "or replace with spark.read.jdbc(...) if external."
+        )
 
     lines.append(f"{lkp_var} = spark.table({qualified_table!r})")
+
+    # Preserve residual cache / fail options not otherwise shown
+    if metadata.get("cached") is not None:
+        lines.append(f"# preserved.cached={metadata.get('cached')!r}")
+    if metadata.get("cache_size"):
+        lines.append(f"# preserved.cache_size={metadata.get('cache_size')!r}")
+    if metadata.get("orderby"):
+        lines.append(f"# preserved.orderby={metadata.get('orderby')!r}")
+
+    # BETWEEN / name2 style keys are not expressible as equi-join pairs
+    for key in metadata.get("keys") or []:
+        if isinstance(key, dict) and (key.get("name2") or "").strip():
+            lines.append(
+                f"# WARNING: DatabaseLookup '{step_name}': BETWEEN/name2 key "
+                f"{key!r} is not supported — equi-join on primary key only"
+            )
 
     needed_cols = _lookup_needed_columns(keys, return_fields)
     if needed_cols:

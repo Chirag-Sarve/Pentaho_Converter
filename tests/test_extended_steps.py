@@ -72,8 +72,10 @@ class TestExtendedSteps(unittest.TestCase):
     def test_join_rows(self):
         xml = """
         <step>
-          <join_type>LEFT OUTER</join_type>
-          <key><name>customer_id</name><field>customer_id</field></key>
+          <directory>%%java.io.tmpdir%%</directory>
+          <prefix>jr</prefix>
+          <cache_size>500</cache_size>
+          <main>A</main>
         </step>
         """
         outcome = self.registry.convert_step(
@@ -81,14 +83,15 @@ class TestExtendedSteps(unittest.TestCase):
             _ctx_multi(xml, "JoinRows", "Join rows", ["A", "B"]),
         )
         code = "\n".join(outcome.code_lines)
-        self.assertIn(".join(", code)
-        self.assertIn("left", code.lower())
+        self.assertIn("crossJoin", code)
+        self.assertIn("Cartesian", code)
 
     def test_merge_rows(self):
         xml = """
         <step>
           <flag_field>diff_flag</flag_field>
-          <key><name>id</name><field>id</field></key>
+          <keys><key>id</key></keys>
+          <values><value>name</value></values>
         </step>
         """
         outcome = self.registry.convert_step(
@@ -97,6 +100,7 @@ class TestExtendedSteps(unittest.TestCase):
         )
         code = "\n".join(outcome.code_lines)
         self.assertTrue(".join(" in code or "unionByName" in code)
+        self.assertIn("changed", code)
 
     def test_formula_withColumn(self):
         xml = """
@@ -123,9 +127,10 @@ class TestExtendedSteps(unittest.TestCase):
             "CsvOutput", _ctx(xml, "CsvOutput", "Write CSV"),
         )
         code = "\n".join(outcome.code_lines)
-        self.assertIn("format('csv')", code)
+        self.assertIn('format("csv")', code)
         self.assertIn("customers.csv", code)
         self.assertIn(";", code)
+        self.assertIn("PENTAHO_DATA_DIR", code)
 
     def test_insert_update_merge(self):
         xml = """
@@ -158,7 +163,8 @@ class TestExtendedSteps(unittest.TestCase):
             "ParquetOutput", _ctx(xml, "ParquetOutput", "Parquet out"),
         )
         code = "\n".join(outcome.code_lines)
-        self.assertIn("format('parquet')", code)
+        self.assertIn(".parquet(", code)
+        self.assertIn("PENTAHO_DATA_DIR", code)
 
     def test_stream_lookup(self):
         xml = """

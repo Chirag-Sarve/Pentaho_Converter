@@ -11,6 +11,7 @@ from .conversion_outcome import (
     STATUS_UNSUPPORTED,
     ConversionReport,
     StepConversionOutcome,
+    format_display_status,
 )
 from .models import ConversionStats, StepConversionResult
 
@@ -83,15 +84,21 @@ def sync_stats_from_outcomes(stats: ConversionStats, outcomes: list[StepConversi
     stats.step_outcomes = outcomes
 
     for o in outcomes:
+        display = o.display_status or format_display_status(
+            o.status, warnings=o.warnings, infos=o.infos, errors=o.errors
+        )
+        detail_bits = o.errors + o.warnings + (o.infos[:2] if o.infos and not o.warnings else [])
         stats.step_results.append(
             StepConversionResult(
                 step_name=o.detail,
                 step_type=o.handler_name,
                 status=o.status,
-                detail="; ".join(o.errors + o.warnings) if (o.errors or o.warnings) else o.detail,
+                detail="; ".join(detail_bits) if detail_bits else o.detail,
                 semantic_score=o.semantic_score,
                 warnings=o.warnings,
                 errors=o.errors,
+                infos=list(o.infos or []),
+                display_status=display,
             )
         )
         if o.status == STATUS_CONVERTED:

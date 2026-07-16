@@ -1,4 +1,9 @@
-"""Handlers for Pentaho input steps."""
+"""Handlers for Pentaho input steps.
+
+Core Inputs: TableInput, CsvInput, ExcelInput, TextFileInput.
+Additional Inputs (Fixed/GZIP/S3/YAML/Property/Access/…) live in
+``extra_input_handlers`` and are registered via ``EXTRA_INPUT_HANDLERS``.
+"""
 
 from __future__ import annotations
 
@@ -82,29 +87,36 @@ class CsvInputHandler(BaseStepHandler):
 
 
 class ExcelInputHandler(BaseStepHandler):
-    _TYPES = {"excelinput"}
+    _TYPES = {"excelinput", "microsoftexcelinput"}
 
     def can_handle(self, step_type: str) -> bool:
-        return step_type.strip().lower() in self._TYPES
+        return step_type.strip().lower().replace(" ", "") in self._TYPES
 
     def generate_code(self, context: StepContext) -> tuple[list[str], str]:
+        # Finish path/variable resolution to match CsvInput / TextFileInput.
         step = context.step
         out_var = context.output_df_name()
-        filename = self._attr(context, "filename", "") or self._attr(context, "file", "")
-        sheet = self._attr(context, "sheetname", "Sheet1")
+        params = context.transformation.parameters
+        raw_path = self._attr(context, "filename", "") or self._attr(context, "file", "")
+        filename = substitute_pentaho_variables(raw_path, params)
+        sheet = self._attr(context, "sheetname", "Sheet1") or "Sheet1"
+        header = self._attr(context, "header", "Y").upper() == "Y"
+        load_path = spark_load_path_expr(filename)
 
         lines = [f"# Excel Input: {step.name}"]
         lines.append(f"{out_var} = (")
-        lines.append(f"    spark.read.format('com.crealytics.spark.excel')")
+        lines.append("    spark.read.format('com.crealytics.spark.excel')")
         lines.append(f"    .option('sheetName', {sheet!r})")
-        lines.append(f"    .option('header', 'true')")
-        lines.append(f"    .load({filename!r})")
+        lines.append(f"    .option('header', {str(header).lower()!r})")
+        lines.append(f"    .load({load_path})")
         lines.append(")")
         return lines, "converted"
 
 
 class TextFileInputHandler(BaseStepHandler):
-    _TYPES = {"textfileinput"}
+    """Text File Input and Text File Input (Legacy / OldTextFileInput)."""
+
+    _TYPES = {"textfileinput", "oldtextfileinput"}
 
     def can_handle(self, step_type: str) -> bool:
         return step_type.strip().lower() in self._TYPES

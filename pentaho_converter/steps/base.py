@@ -91,10 +91,17 @@ class StepRegistry:
         self._fallback = converter
 
     def get_converter(self, step_type: str) -> ConverterLike | None:
-        key = step_type.strip().lower()
-        for c in self._converters:
-            if getattr(c, "handles", lambda _t: False)(key) or getattr(c, "can_handle", lambda _t: False)(key):
-                return c
+        # Try exact lowercased key, then compact (spaces/parens stripped) so
+        # both KTR type IDs and UI display names match dedicated handlers.
+        raw = (step_type or "").strip().lower()
+        compact = raw.replace(" ", "").replace("(", "").replace(")", "")
+        keys = [raw] if raw == compact else [raw, compact]
+        for key in keys:
+            for c in self._converters:
+                if getattr(c, "handles", lambda _t: False)(key) or getattr(
+                    c, "can_handle", lambda _t: False
+                )(key):
+                    return c
         return self._fallback
 
     def convert_step(self, step_type: str, context: StepContext) -> StepConversionOutcome:

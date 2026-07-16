@@ -187,6 +187,21 @@ def convert_merge_join_step(
 ) -> tuple[list[str], str]:
     """Generate PySpark lines for a Merge Join step from propagated metadata."""
     lines = [f"# Merge Join: {step_name}"]
+    status = "converted"
+
+    join_type = _join_type_from_metadata(metadata)
+    keys = _join_keys_from_metadata(metadata)
+    if join_type:
+        lines.append(f"# preserved.join_type={join_type!r}")
+    if keys:
+        lines.append(
+            "# preserved.join_keys="
+            + repr([{"left": k.left, "right": k.right} for k in keys])
+        )
+    lines.append(
+        "# NOTE: PDI Merge Join requires both streams pre-sorted on join keys — "
+        "Spark join() does not enforce sort order (preserve sort steps upstream if needed)"
+    )
 
     if len(input_dfs) < 2:
         lines.extend(
@@ -209,17 +224,25 @@ def convert_merge_join_step(
         )
         return lines, "partial"
 
-    keys = _join_keys_from_metadata(metadata)
-    how = _spark_how(_join_type_from_metadata(metadata))
+    how = _spark_how(join_type)
     joined_var = f"_joined_{out_var}"
 
     if keys:
+        lines.append(
+            f"# WARNING: MergeJoin '{step_name}': null join keys do not match "
+            "(Spark == / PDI merge semantics); duplicate keys produce a cartesian "
+            "explosion within the key group; ensure key data types match across streams"
+        )
         on_arg, use_on = format_spark_join_on(left, right, keys)
         if use_on:
             lines.append(f"{joined_var} = {left}.join({right}, on={on_arg}, how={how!r})")
         else:
             lines.append(f"{joined_var} = {left}.join({right}, {on_arg}, how={how!r})")
     elif how == "cross":
+        lines.append(
+            f"# WARNING: MergeJoin '{step_name}': CROSS join can be very expensive "
+            "on large datasets"
+        )
         lines.append(f"{out_var} = {left}.crossJoin({right})")
         return lines, "converted"
     else:
@@ -263,14 +286,14 @@ def convert_merge_join_step(
                 )
             )
         elif left_cols or right_cols:
-            lines.extend(
-                _unresolved_lines(
-                    step_name,
-                    out_var,
-                    "incomplete column lineage for join streams — cannot disambiguate join output columns",
+                lines.extend(
+                    _unresolved_lines(
+                        step_name,
+                        out_var,
+                        "incomplete column lineage for join streams — cannot disambiguate join output columns",
+                    )
                 )
-            )
-            return lines, "partial"
+                return lines, "partial"
         else:
             if lineage_empty:
                 lines.append(
@@ -286,4 +309,4 @@ def convert_merge_join_step(
             )
         lines.append(f"{out_var} = {joined_var}")
 
-    return lines, "converted"
+    return lines, status

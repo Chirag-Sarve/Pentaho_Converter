@@ -413,6 +413,77 @@ def _df_name_for_step(context: StepContext, step_name: str) -> str:
     return context.df_variable_map.get(step_name, f"df_{safe}")
 
 
+def _branch_stream_name(step_name: str) -> str:
+    """Branch stream DF name from the target step name (not Dummy-prefixed map names)."""
+    safe = step_name.replace(" ", "_").replace("-", "_")
+    return f"df_{safe}"
+
+
+def resolve_incoming_branch_df(context: StepContext, step_name: str | None = None) -> str | None:
+    """If ``step_name`` is a Filter/JavaFilter/SwitchCase branch target, return that stream DF.
+
+    Filter/JavaFilter write ``df_<Target> = …filter…`` before the target step runs. Callers
+    must use this stream (not the Filter primary output) so success rows never overwrite
+    the failure/true branch DataFrame.
+    """
+    target = step_name or context.step.name
+    preds = context.dag.predecessors(target)
+    if not preds:
+        return None
+    pred_name = preds[0]
+    pred = context.dag.steps.get(pred_name)
+    if pred is None:
+        return None
+    st = (pred.step_type or "").strip().lower().replace(" ", "")
+
+    if st in {"filterrows", "javafilter"}:
+        meta: dict[str, Any] = {}
+        if pred.parsed_config:
+            meta = dict(pred.parsed_config)
+        else:
+            step_el = None
+            try:
+                from .step_xml import get_step_element, parse_filter_rows_config, parse_java_filter_config
+
+                step_el = get_step_element(pred)
+                if step_el is not None:
+                    meta = (
+                        parse_filter_rows_config(step_el)
+                        if st == "filterrows"
+                        else parse_java_filter_config(step_el)
+                    )
+            except Exception:
+                meta = {}
+        true_target, false_target = _connected_branch_targets(meta, context, pred_name)
+        if target in {true_target, false_target}:
+            return _branch_stream_name(target)
+        return None
+
+    if st == "switchcase":
+        meta = dict(pred.parsed_config) if pred.parsed_config else {}
+        if not meta:
+            try:
+                from .step_xml import get_step_element, parse_switch_case_config
+
+                step_el = get_step_element(pred)
+                if step_el is not None:
+                    meta = parse_switch_case_config(step_el)
+            except Exception:
+                meta = {}
+        targets = {
+            (c.get("target_step") if isinstance(c, dict) else "")
+            for c in (meta.get("cases") or [])
+        }
+        default = (meta.get("default_target_step") or "").strip()
+        if default:
+            targets.add(default)
+        if target in targets:
+            return _branch_stream_name(target)
+        return None
+
+    return None
+
+
 def _condition_from_metadata(metadata: dict[str, Any]) -> FilterExpressionResult:
     condition = metadata.get("filter_condition") or metadata.get("condition")
     compare_value = (metadata.get("compare_value") or "").strip()
@@ -457,6 +528,7 @@ def _unresolved_lines(step_name: str, out_var: str, message: str) -> list[str]:
     return [
         f"# WARNING: FilterRows '{step_name}': {message}",
         f"{out_var} = spark.createDataFrame([], '_filter_unresolved STRING')",
+        f"{out_var} = {out_var}.filter(lit(False))  # unresolved condition → no rows",
     ]
 
 
@@ -556,8 +628,10 @@ def convert_filter_rows_step(
     true_target, false_target = _connected_branch_targets(metadata, context, step_name)
 
     if true_target and false_target:
-        true_var = _df_name_for_step(context, true_target) if context else f"df_{true_target}"
-        false_var = _df_name_for_step(context, false_target) if context else f"df_{false_target}"
+        # Use raw df_<TargetStep> names so Dummy (df_Dummy_*) can pass the stream through
+        # without overwriting the branch DataFrame with the Filter primary output.
+        true_var = _branch_stream_name(true_target)
+        false_var = _branch_stream_name(false_target)
         lines.append(f"{true_var} = {in_df}.filter({filter_expr})")
         lines.append(f"{false_var} = {in_df}.filter(~({filter_expr}))")
         if out_var != true_var:
@@ -565,7 +639,7 @@ def convert_filter_rows_step(
         return lines, "converted"
 
     if false_target and not true_target:
-        false_var = _df_name_for_step(context, false_target) if context else f"df_{false_target}"
+        false_var = _branch_stream_name(false_target)
         lines.append(f"{false_var} = {in_df}.filter(~({filter_expr}))")
         if out_var != false_var:
             lines.append(f"{out_var} = {false_var}")

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>Calc_SelectValues_Chain</name>
+    <description>Downstream continuity: DataGrid → Calculator → SelectValues → Calculator</description>
+  </info>
+  <order>
+    <hop><from>Generate Rows</from><to>Calc amounts</to><enabled>Y</enabled></hop>
+    <hop><from>Calc amounts</from><to>Select values</to><enabled>Y</enabled></hop>
+    <hop><from>Select values</from><to>Calc final</to><enabled>Y</enabled></hop>
+  </order>
+
+  <step>
+    <name>Generate Rows</name>
+    <type>DataGrid</type>
+    <fields>
+      <field><name>qty</name><type>Integer</type></field>
+      <field><name>unit_price</name><type>Number</type></field>
+      <field><name>discount_pct</name><type>Number</type></field>
+      <field><name>sku</name><type>String</type></field>
+      <field><name>scratch</name><type>String</type></field>
+    </fields>
+    <data>
+      <line><item>3</item><item>20</item><item>10</item><item>SKU-1</item><item>x</item></line>
+    </data>
+  </step>
+
+  <step>
+    <name>Calc amounts</name>
+    <type>Calculator</type>
+    <calculation>
+      <field_name>gross</field_name>
+      <calc_type>A * B</calc_type>
+      <field_a>qty</field_a>
+      <field_b>unit_price</field_b>
+      <value_type>Number</value_type>
+    </calculation>
+    <calculation>
+      <field_name>net</field_name>
+      <calc_type>PERCENT_2</calc_type>
+      <field_a>gross</field_a>
+      <field_b>discount_pct</field_b>
+      <value_type>Number</value_type>
+    </calculation>
+    <calculation>
+      <field_name>sku_upper</field_name>
+      <calc_type>UPPER</calc_type>
+      <field_a>sku</field_a>
+      <value_type>String</value_type>
+    </calculation>
+  </step>
+
+  <step>
+    <name>Select values</name>
+    <type>SelectValues</type>
+    <fields>
+      <field><name>sku_upper</name><rename>sku</rename></field>
+      <field><name>gross</name></field>
+      <field><name>net</name></field>
+      <field><name>qty</name></field>
+      <remove><name>scratch</name></remove>
+      <meta>
+        <name>net</name>
+        <type>Number</type>
+        <length>18</length>
+        <precision>4</precision>
+      </meta>
+    </fields>
+  </step>
+
+  <step>
+    <name>Calc final</name>
+    <type>Calculator</type>
+    <calculation>
+      <field_name>unit_net</field_name>
+      <calc_type>DIVIDE</calc_type>
+      <field_a>net</field_a>
+      <field_b>qty</field_b>
+      <value_type>Number</value_type>
+    </calculation>
+  </step>
+</transformation>

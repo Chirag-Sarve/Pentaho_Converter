@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>Abort_Pass_Fail</name>
+    <description>Filter true→OK, false→Abort; PASS when no failure rows, FAIL when Abort receives rows</description>
+  </info>
+  <order>
+    <hop><from>Generate</from><to>Filter</to><enabled>Y</enabled></hop>
+    <hop><from>Filter</from><to>OK</to><enabled>Y</enabled></hop>
+    <hop><from>Filter</from><to>Abort</to><enabled>Y</enabled></hop>
+  </order>
+  <step>
+    <name>Generate</name>
+    <type>DataGrid</type>
+    <fields>
+      <field><name>status</name><type>String</type></field>
+    </fields>
+    <data>
+      <line><item>A</item></line>
+      <line><item>B</item></line>
+    </data>
+  </step>
+  <step>
+    <name>Filter</name>
+    <type>FilterRows</type>
+    <send_true_to>OK</send_true_to>
+    <send_false_to>Abort</send_false_to>
+    <compare>
+      <condition>
+        <negated>N</negated>
+        <leftvalue>status</leftvalue>
+        <function>=</function>
+        <value><name>constant</name><type>String</type><text>A</text></value>
+      </condition>
+    </compare>
+  </step>
+  <step>
+    <name>OK</name>
+    <type>Dummy</type>
+  </step>
+  <step>
+    <name>Abort</name>
+    <type>Abort</type>
+    <message>failure rows reached Abort</message>
+    <row_threshold>0</row_threshold>
+  </step>
+</transformation>

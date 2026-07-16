@@ -187,7 +187,15 @@ def resolve_project(
     logs.append("Dependency resolution started.")
 
     if jobs:
+        # Prefer Master / Master_ETL as the project root when present.
         primary_job = next(iter(jobs.values()))
+        for job in jobs.values():
+            stem = (job.file_path.stem or job.name).lower()
+            if stem == "master_etl":
+                primary_job = job
+                break
+            if stem == "master" or stem.startswith("master"):
+                primary_job = job
         if len(jobs) > 1:
             logs.append(
                 f"Multiple jobs found ({len(jobs)}); using '{primary_job.name}' as primary workflow."

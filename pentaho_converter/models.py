@@ -14,7 +14,8 @@ class PentahoHop:
     from_name: str
     to_name: str
     enabled: bool = True
-    evaluation: str | None = None  # job hop: true/false/unconditional
+    evaluation: str | None = None  # job hop: Y/N (success/failure) when not unconditional
+    unconditional: bool | None = None  # job hop: Y → fire regardless of result
 
 
 @dataclass
@@ -66,7 +67,8 @@ class PentahoJobEntry:
     entry_type: str
     filename: str = ""
     transname: str = ""
-    attributes: dict[str, str] = field(default_factory=dict)
+    jobname: str = ""
+    attributes: dict[str, Any] = field(default_factory=dict)
     is_start: bool = False
 
 
@@ -78,6 +80,7 @@ class PentahoJob:
     file_path: Path
     entries: list[PentahoJobEntry] = field(default_factory=list)
     hops: list[PentahoHop] = field(default_factory=list)
+    parameters: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -101,6 +104,8 @@ class StepConversionResult:
     semantic_score: float = 0.0
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    infos: list[str] = field(default_factory=list)
+    display_status: str = ""
 
 
 @dataclass
@@ -128,4 +133,4 @@ class ConversionResult:
     stats: ConversionStats = field(default_factory=ConversionStats)
     main_workflow: str | None = None
     project_inventory: list[dict] = field(default_factory=list)
-    lineage: dict = field(default_factory=dict)
+    code_navigation: dict = field(default_factory=dict)

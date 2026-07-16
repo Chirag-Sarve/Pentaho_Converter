@@ -53,18 +53,34 @@ def table_write_lines(
     step_name: str,
     config: GenerationConfig | None = None,
     mode: str = "overwrite",
+    step_type: str = "TableOutput",
 ) -> list[str]:
-    """Generate PySpark lines for Delta saveAsTable with schema creation."""
-    table_name = (table or "target_table").strip()
+    """Generate PySpark lines for Delta ``saveAsTable`` (Unity Catalog)."""
+    table_name = (table or "").strip()
     pentaho_schema = (source_schema or "").strip()
     schema_note = f" (Pentaho schema: {pentaho_schema})" if pentaho_schema else ""
 
-    lines = [f"# Table Output: {step_name}{schema_note}"]
+    lines = [f"# Pentaho step: {step_name} (type: {step_type}){schema_note}"]
     lines.append(f"{out_var} = {in_df}")
+    if not table_name:
+        lines.append("# WARNING: Target table name missing from Pentaho metadata.")
+        lines.append(
+            f"{out_var}.write \\\n"
+            f"    .format(\"delta\") \\\n"
+            f"    .mode({mode!r}) \\\n"
+            f"    .saveAsTable(\n"
+            f"        f\"{{TARGET_CATALOG}}.{{TARGET_SCHEMA}}.<table_name>\"\n"
+            f"    )"
+        )
+        return lines
+
     lines.append("spark.sql(f'CREATE SCHEMA IF NOT EXISTS {TARGET_CATALOG}.{TARGET_SCHEMA}')")
-    lines.append(f"_target_table = f'{{TARGET_CATALOG}}.{{TARGET_SCHEMA}}.{table_name}'")
     lines.append(
-        f"{out_var}.write.format('delta').mode({mode!r})"
-        f".option('overwriteSchema', 'true').saveAsTable(_target_table)"
+        f"{out_var}.write \\\n"
+        f"    .format(\"delta\") \\\n"
+        f"    .mode({mode!r}) \\\n"
+        f"    .saveAsTable(\n"
+        f"        f\"{{TARGET_CATALOG}}.{{TARGET_SCHEMA}}.{table_name}\"\n"
+        f"    )"
     )
     return lines

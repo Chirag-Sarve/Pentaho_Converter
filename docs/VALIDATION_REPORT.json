@@ -1,0 +1,2548 @@
+{
+  "generated_at": "2026-07-15T12:15:47.856947+00:00",
+  "totals": {
+    "PASS": 385,
+    "N/A": 8
+  },
+  "by_category": {
+    "transformation": {
+      "PASS": 11
+    },
+    "api": {
+      "PASS": 11
+    },
+    "step": {
+      "PASS": 63
+    },
+    "hop": {
+      "PASS": 52
+    },
+    "lookup": {
+      "PASS": 1
+    },
+    "filter": {
+      "PASS": 5
+    },
+    "join": {
+      "PASS": 1
+    },
+    "calculated_field": {
+      "PASS": 24
+    },
+    "aggregation": {
+      "PASS": 2
+    },
+    "output": {
+      "PASS": 4,
+      "N/A": 8
+    },
+    "job": {
+      "PASS": 2
+    },
+    "job_entry": {
+      "PASS": 37
+    },
+    "job_hop": {
+      "PASS": 46
+    },
+    "job_child_trans": {
+      "PASS": 2
+    },
+    "child_job": {
+      "PASS": 10
+    },
+    "job_handler": {
+      "PASS": 14
+    },
+    "retail_transformation": {
+      "PASS": 49
+    },
+    "job_trans_ref": {
+      "PASS": 51
+    }
+  },
+  "transformations": [
+    {
+      "ktr": "samples\\Transformations\\Complex_Business_Logic.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\complex_business_logic.py",
+      "module_exists": true,
+      "pass": 45,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "Complex_Business_Logic",
+          "status": "PASS",
+          "detail": "Mapped to complex_business_logic.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "CSV product prices [CsvInput]",
+          "status": "PASS",
+          "detail": "token=df_CSV_product_prices"
+        },
+        {
+          "category": "step",
+          "item": "Region reference grid [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Region_reference_grid"
+        },
+        {
+          "category": "step",
+          "item": "Table input orders [TableInput]",
+          "status": "PASS",
+          "detail": "token=df_Table_input_orders"
+        },
+        {
+          "category": "step",
+          "item": "Filter active orders [FilterRows]",
+          "status": "PASS",
+          "detail": "token=df_Filter_active_orders"
+        },
+        {
+          "category": "step",
+          "item": "Replace null amounts [ReplaceNull]",
+          "status": "PASS",
+          "detail": "token=df_Replace_null_amounts"
+        },
+        {
+          "category": "step",
+          "item": "Add batch constants [Constant]",
+          "status": "PASS",
+          "detail": "token=df_Add_batch_constants"
+        },
+        {
+          "category": "step",
+          "item": "Calculate line metrics [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calculate_line_metrics"
+        },
+        {
+          "category": "step",
+          "item": "Apply discount formula [Formula]",
+          "status": "PASS",
+          "detail": "token=df_Apply_discount_formula"
+        },
+        {
+          "category": "step",
+          "item": "Normalize customer name [StringOperations]",
+          "status": "PASS",
+          "detail": "token=df_Normalize_customer_name"
+        },
+        {
+          "category": "step",
+          "item": "Fix product codes [ReplaceInString]",
+          "status": "PASS",
+          "detail": "token=df_Fix_product_codes"
+        },
+        {
+          "category": "step",
+          "item": "Sort by order date [SortRows]",
+          "status": "PASS",
+          "detail": "token=df_Sort_by_order_date"
+        },
+        {
+          "category": "step",
+          "item": "Merge join with products [MergeJoin]",
+          "status": "PASS",
+          "detail": "token=df_Merge_join_with_products"
+        },
+        {
+          "category": "step",
+          "item": "Stream lookup regions [StreamLookup]",
+          "status": "PASS",
+          "detail": "token=df_Stream_lookup_regions"
+        },
+        {
+          "category": "step",
+          "item": "Aggregate by region [GroupBy]",
+          "status": "PASS",
+          "detail": "token=df_Aggregate_by_region"
+        },
+        {
+          "category": "step",
+          "item": "Table output summary [TableOutput]",
+          "status": "PASS",
+          "detail": "token=df_Table_output_summary"
+        },
+        {
+          "category": "step",
+          "item": "Text file audit log [TextFileOutput]",
+          "status": "PASS",
+          "detail": "token=df_Text_file_audit_log"
+        },
+        {
+          "category": "hop",
+          "item": "Table input orders \u2192 Filter active orders",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Filter active orders \u2192 Replace null amounts",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Replace null amounts \u2192 Add batch constants",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Add batch constants \u2192 Calculate line metrics",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calculate line metrics \u2192 Apply discount formula",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Apply discount formula \u2192 Normalize customer name",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Normalize customer name \u2192 Fix product codes",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Fix product codes \u2192 Sort by order date",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Sort by order date \u2192 Merge join with products",
+          "status": "PASS",
+          "detail": "both DF tokens present (join/multi-input)"
+        },
+        {
+          "category": "hop",
+          "item": "CSV product prices \u2192 Merge join with products",
+          "status": "PASS",
+          "detail": "both DF tokens present (join/multi-input)"
+        },
+        {
+          "category": "hop",
+          "item": "Merge join with products \u2192 Stream lookup regions",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Region reference grid \u2192 Stream lookup regions",
+          "status": "PASS",
+          "detail": "both DF tokens present (join/multi-input)"
+        },
+        {
+          "category": "hop",
+          "item": "Stream lookup regions \u2192 Aggregate by region",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Aggregate by region \u2192 Table output summary",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Aggregate by region \u2192 Text file audit log",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "lookup",
+          "item": "Stream lookup regions",
+          "status": "PASS",
+          "detail": "join=True broadcast=True keys=['region_code', '']"
+        },
+        {
+          "category": "filter",
+          "item": "Filter active orders",
+          "status": "PASS",
+          "detail": "filter_call=True token_present=True"
+        },
+        {
+          "category": "join",
+          "item": "Merge join with products (INNER)",
+          "status": "PASS",
+          "detail": "keys_1=['product_code_std'] keys_2=['product_code']"
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calculate line metrics.line_total (MULTIPLY)",
+          "status": "PASS",
+          "detail": "a=quantity b=unit_price formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calculate line metrics.discount_amount (MULTIPLY)",
+          "status": "PASS",
+          "detail": "a=line_total b=unit_price formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calculate line metrics.net_revenue (SUBTRACT)",
+          "status": "PASS",
+          "detail": "a=line_total b=discount_amount formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calculate line metrics.customer_name_upper (UPPER)",
+          "status": "PASS",
+          "detail": "a=customer_name b= formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calculate line metrics.name_length (LENGTH)",
+          "status": "PASS",
+          "detail": "a=customer_name b= formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Apply discount formula.adjusted_net_revenue (FORMULA)",
+          "status": "PASS",
+          "detail": "a=None b=None formula=[net_revenue] - ([discount_amount] * 0.05)"
+        },
+        {
+          "category": "aggregation",
+          "item": "Aggregate by region",
+          "status": "PASS",
+          "detail": "aggs=[{'name': 'total_net_revenue', 'aggregate': 'SUM', 'subject': 'adjusted_net_revenue'}, {'name': 'order_count', 'aggregate': 'COUNT', 'subject': 'order_id'}] missing_in_code=[]"
+        },
+        {
+          "category": "output",
+          "item": "Table output summary [TableOutput]",
+          "status": "PASS",
+          "detail": "table=fact_order_summary, schema=analytics; write=True"
+        },
+        {
+          "category": "output",
+          "item": "Text file audit log [TextFileOutput]",
+          "status": "PASS",
+          "detail": "file=/data/outbound/order_summary_audit.txt; write=True"
+        }
+      ]
+    },
+    {
+      "ktr": "samples\\Transformations\\Customer_Load.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\customer_load.py",
+      "module_exists": true,
+      "pass": 11,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "Customer_Load",
+          "status": "PASS",
+          "detail": "Mapped to customer_load.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Table input [TableInput]",
+          "status": "PASS",
+          "detail": "token=df_Table_input"
+        },
+        {
+          "category": "step",
+          "item": "Filter rows [FilterRows]",
+          "status": "PASS",
+          "detail": "token=df_Filter_rows"
+        },
+        {
+          "category": "step",
+          "item": "Select values [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_Select_values"
+        },
+        {
+          "category": "step",
+          "item": "Table output [TableOutput]",
+          "status": "PASS",
+          "detail": "token=df_Table_output"
+        },
+        {
+          "category": "hop",
+          "item": "Table input \u2192 Filter rows",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Filter rows \u2192 Select values",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Select values \u2192 Table output",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "filter",
+          "item": "Filter rows",
+          "status": "PASS",
+          "detail": "filter_call=True token_present=True"
+        },
+        {
+          "category": "output",
+          "item": "Table output [TableOutput]",
+          "status": "PASS",
+          "detail": "table=dim_customer, schema=analytics; write=True"
+        }
+      ]
+    },
+    {
+      "ktr": "samples\\Transformations\\Sales_Load.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\sales_load.py",
+      "module_exists": true,
+      "pass": 8,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "Sales_Load",
+          "status": "PASS",
+          "detail": "Mapped to sales_load.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "CSV file input [CsvInput]",
+          "status": "PASS",
+          "detail": "token=df_CSV_file_input"
+        },
+        {
+          "category": "step",
+          "item": "Sort rows [SortRows]",
+          "status": "PASS",
+          "detail": "token=df_Sort_rows"
+        },
+        {
+          "category": "step",
+          "item": "Group by [GroupBy]",
+          "status": "PASS",
+          "detail": "token=df_Group_by"
+        },
+        {
+          "category": "hop",
+          "item": "CSV file input \u2192 Sort rows",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Sort rows \u2192 Group by",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "aggregation",
+          "item": "Group by",
+          "status": "PASS",
+          "detail": "aggs=[{'name': 'region', 'aggregate': '', 'subject': ''}] missing_in_code=[]"
+        },
+        {
+          "category": "output",
+          "item": "(none in KTR)",
+          "status": "N/A",
+          "detail": "transformation has no output step in source"
+        }
+      ]
+    },
+    {
+      "ktr": "tests\\samples\\Abort_Pass_Fail.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\abort_pass_fail.py",
+      "module_exists": true,
+      "pass": 10,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "Abort_Pass_Fail",
+          "status": "PASS",
+          "detail": "Mapped to abort_pass_fail.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Generate [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Generate"
+        },
+        {
+          "category": "step",
+          "item": "Filter [FilterRows]",
+          "status": "PASS",
+          "detail": "token=df_Filter"
+        },
+        {
+          "category": "step",
+          "item": "OK [Dummy]",
+          "status": "PASS",
+          "detail": "token=df_OK"
+        },
+        {
+          "category": "step",
+          "item": "Abort [Abort]",
+          "status": "PASS",
+          "detail": "token=df_Abort"
+        },
+        {
+          "category": "hop",
+          "item": "Generate \u2192 Filter",
+          "status": "PASS",
+          "detail": "both DF tokens present (join/multi-input)"
+        },
+        {
+          "category": "hop",
+          "item": "Filter \u2192 OK",
+          "status": "PASS",
+          "detail": "filter branch tokens present"
+        },
+        {
+          "category": "hop",
+          "item": "Filter \u2192 Abort",
+          "status": "PASS",
+          "detail": "filter branch tokens present"
+        },
+        {
+          "category": "filter",
+          "item": "Filter",
+          "status": "PASS",
+          "detail": "filter_call=True token_present=True"
+        },
+        {
+          "category": "output",
+          "item": "(none in KTR)",
+          "status": "N/A",
+          "detail": "transformation has no output step in source"
+        }
+      ]
+    },
+    {
+      "ktr": "tests\\samples\\Calc_SelectValues_Chain.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\calc_select_values_chain.py",
+      "module_exists": true,
+      "pass": 13,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "Calc_SelectValues_Chain",
+          "status": "PASS",
+          "detail": "Mapped to calc_select_values_chain.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Generate Rows [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Generate_Rows"
+        },
+        {
+          "category": "step",
+          "item": "Calc amounts [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_amounts"
+        },
+        {
+          "category": "step",
+          "item": "Select values [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_Select_values"
+        },
+        {
+          "category": "step",
+          "item": "Calc final [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_final"
+        },
+        {
+          "category": "hop",
+          "item": "Generate Rows \u2192 Calc amounts",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calc amounts \u2192 Select values",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Select values \u2192 Calc final",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc amounts.gross (A * B)",
+          "status": "PASS",
+          "detail": "a=qty b=unit_price formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc amounts.net (PERCENT_2)",
+          "status": "PASS",
+          "detail": "a=gross b=discount_pct formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc amounts.sku_upper (UPPER)",
+          "status": "PASS",
+          "detail": "a=sku b= formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc final.unit_net (DIVIDE)",
+          "status": "PASS",
+          "detail": "a=net b=qty formula="
+        },
+        {
+          "category": "output",
+          "item": "(none in KTR)",
+          "status": "N/A",
+          "detail": "transformation has no output step in source"
+        }
+      ]
+    },
+    {
+      "ktr": "tests\\samples\\Calculator_Variants.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\calculator_variants.py",
+      "module_exists": true,
+      "pass": 26,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "Calculator_Variants",
+          "status": "PASS",
+          "detail": "Mapped to calculator_variants.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Generate Rows [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Generate_Rows"
+        },
+        {
+          "category": "step",
+          "item": "Calc short names [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_short_names"
+        },
+        {
+          "category": "step",
+          "item": "Calc numeric IDs [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_numeric_IDs"
+        },
+        {
+          "category": "step",
+          "item": "Calc long desc [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_long_desc"
+        },
+        {
+          "category": "step",
+          "item": "Calc multi ops [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_multi_ops"
+        },
+        {
+          "category": "step",
+          "item": "Calc unsupported [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_unsupported"
+        },
+        {
+          "category": "step",
+          "item": "Calc empty [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_empty"
+        },
+        {
+          "category": "hop",
+          "item": "Generate Rows \u2192 Calc short names",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calc short names \u2192 Calc numeric IDs",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calc numeric IDs \u2192 Calc long desc",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calc long desc \u2192 Calc multi ops",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calc multi ops \u2192 Calc unsupported",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calc unsupported \u2192 Calc empty",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc short names.line_total (MULTIPLY)",
+          "status": "PASS",
+          "detail": "a=qty b=price formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc short names.name_upper (UPPER_CASE)",
+          "status": "PASS",
+          "detail": "a=name b= formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc numeric IDs.sum_ids (3)",
+          "status": "PASS",
+          "detail": "a=qty b=tmp_a formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc numeric IDs.name_len (56)",
+          "status": "PASS",
+          "detail": "a=name b= formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc long desc.pct (100 * A / B)",
+          "status": "PASS",
+          "detail": "a=line_total b=rate formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc long desc.diff (A - B)",
+          "status": "PASS",
+          "detail": "a=line_total b=tmp_a formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc multi ops.days_out (ADD_DAYS)",
+          "status": "PASS",
+          "detail": "a=order_date b=1 formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc multi ops.name_lower (LOWER)",
+          "status": "PASS",
+          "detail": "a=name b= formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc multi ops.discounted (PERCENT_2)",
+          "status": "PASS",
+          "detail": "a=line_total b=rate formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc unsupported.jaro_score (JARO)",
+          "status": "PASS",
+          "detail": "a=name b=name_upper formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc empty: (empty)",
+          "status": "PASS",
+          "detail": "no calculation elements in KTR"
+        },
+        {
+          "category": "output",
+          "item": "(none in KTR)",
+          "status": "N/A",
+          "detail": "transformation has no output step in source"
+        }
+      ]
+    },
+    {
+      "ktr": "tests\\samples\\Generator_Audit_Workflow.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\generator_audit_workflow.py",
+      "module_exists": true,
+      "pass": 20,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "Generator_Audit_Workflow",
+          "status": "PASS",
+          "detail": "Mapped to generator_audit_workflow.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Generate Rows [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Generate_Rows"
+        },
+        {
+          "category": "step",
+          "item": "Add constants [Constant]",
+          "status": "PASS",
+          "detail": "token=df_Add_constants"
+        },
+        {
+          "category": "step",
+          "item": "Calc metrics [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calc_metrics"
+        },
+        {
+          "category": "step",
+          "item": "Filter active [FilterRows]",
+          "status": "PASS",
+          "detail": "token=df_Filter_active"
+        },
+        {
+          "category": "step",
+          "item": "Select values [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_Select_values"
+        },
+        {
+          "category": "step",
+          "item": "Map status [ValueMapper]",
+          "status": "PASS",
+          "detail": "token=df_Map_status"
+        },
+        {
+          "category": "step",
+          "item": "System info [SystemInfo]",
+          "status": "PASS",
+          "detail": "token=df_System_info"
+        },
+        {
+          "category": "step",
+          "item": "Guard abort [Abort]",
+          "status": "PASS",
+          "detail": "token=df_Guard_abort"
+        },
+        {
+          "category": "hop",
+          "item": "Generate Rows \u2192 Add constants",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Add constants \u2192 Calc metrics",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calc metrics \u2192 Filter active",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Filter active \u2192 Select values",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Select values \u2192 Map status",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Map status \u2192 System info",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "System info \u2192 Guard abort",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "filter",
+          "item": "Filter active",
+          "status": "PASS",
+          "detail": "filter_call=True token_present=True"
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc metrics.total (MULTIPLY)",
+          "status": "PASS",
+          "detail": "a=qty b=price formula="
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calc metrics.name_u (UPPER_CASE)",
+          "status": "PASS",
+          "detail": "a=name b= formula="
+        },
+        {
+          "category": "output",
+          "item": "(none in KTR)",
+          "status": "N/A",
+          "detail": "transformation has no output step in source"
+        }
+      ]
+    },
+    {
+      "ktr": "tests\\samples\\SelectValues_Variants.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\select_values_variants.py",
+      "module_exists": true,
+      "pass": 15,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "SelectValues_Variants",
+          "status": "PASS",
+          "detail": "Mapped to select_values_variants.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Generate Rows [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Generate_Rows"
+        },
+        {
+          "category": "step",
+          "item": "SV select rename [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_SV_select_rename"
+        },
+        {
+          "category": "step",
+          "item": "SV remove under fields [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_SV_remove_under_fields"
+        },
+        {
+          "category": "step",
+          "item": "SV meta only [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_SV_meta_only"
+        },
+        {
+          "category": "step",
+          "item": "SV remove step level [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_SV_remove_step_level"
+        },
+        {
+          "category": "step",
+          "item": "SV select unspecified [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_SV_select_unspecified"
+        },
+        {
+          "category": "step",
+          "item": "SV full meta [SelectValues]",
+          "status": "PASS",
+          "detail": "token=df_SV_full_meta"
+        },
+        {
+          "category": "hop",
+          "item": "Generate Rows \u2192 SV select rename",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "SV select rename \u2192 SV remove under fields",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "SV remove under fields \u2192 SV meta only",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "SV meta only \u2192 SV remove step level",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "SV remove step level \u2192 SV select unspecified",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "SV select unspecified \u2192 SV full meta",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "output",
+          "item": "(none in KTR)",
+          "status": "N/A",
+          "detail": "transformation has no output step in source"
+        }
+      ]
+    },
+    {
+      "ktr": "tests\\samples\\Step_Converter_Test.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\step_converter_test.py",
+      "module_exists": true,
+      "pass": 13,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "Step_Converter_Test",
+          "status": "PASS",
+          "detail": "Mapped to step_converter_test.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Generate Rows [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Generate_Rows"
+        },
+        {
+          "category": "step",
+          "item": "Add constants [Constant]",
+          "status": "PASS",
+          "detail": "token=df_Add_constants"
+        },
+        {
+          "category": "step",
+          "item": "Calculator [Calculator]",
+          "status": "PASS",
+          "detail": "token=df_Calculator"
+        },
+        {
+          "category": "step",
+          "item": "String ops [StringOperations]",
+          "status": "PASS",
+          "detail": "token=df_String_ops"
+        },
+        {
+          "category": "step",
+          "item": "Filter rows [FilterRows]",
+          "status": "PASS",
+          "detail": "token=df_Filter_rows"
+        },
+        {
+          "category": "hop",
+          "item": "Generate Rows \u2192 Add constants",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Add constants \u2192 Calculator",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "Calculator \u2192 String ops",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "String ops \u2192 Filter rows",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "filter",
+          "item": "Filter rows",
+          "status": "PASS",
+          "detail": "filter_call=True token_present=True"
+        },
+        {
+          "category": "calculated_field",
+          "item": "Calculator.age_plus_one (ADD)",
+          "status": "PASS",
+          "detail": "a=age b=id formula="
+        },
+        {
+          "category": "output",
+          "item": "(none in KTR)",
+          "status": "N/A",
+          "detail": "transformation has no output step in source"
+        }
+      ]
+    },
+    {
+      "ktr": "tests\\samples\\TextFile_Write_Read.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\text_file_write_read.py",
+      "module_exists": true,
+      "pass": 8,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "TextFile_Write_Read",
+          "status": "PASS",
+          "detail": "Mapped to text_file_write_read.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Generate [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Generate"
+        },
+        {
+          "category": "step",
+          "item": "WriteCSV [TextFileOutput]",
+          "status": "PASS",
+          "detail": "token=df_WriteCSV"
+        },
+        {
+          "category": "step",
+          "item": "ReadCSV [TextFileInput]",
+          "status": "PASS",
+          "detail": "token=df_ReadCSV"
+        },
+        {
+          "category": "hop",
+          "item": "Generate \u2192 WriteCSV",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "hop",
+          "item": "WriteCSV \u2192 ReadCSV",
+          "status": "PASS",
+          "detail": "both DF tokens present (join/multi-input)"
+        },
+        {
+          "category": "output",
+          "item": "WriteCSV [TextFileOutput]",
+          "status": "PASS",
+          "detail": "file=C:\\pentaho\\data\\runtime_orders; write=True"
+        }
+      ]
+    },
+    {
+      "ktr": "tests\\samples\\ValueMapper_Runtime.ktr",
+      "module": "databricks_project\\src\\pentaho_migration\\transformations\\value_mapper_runtime.py",
+      "module_exists": true,
+      "pass": 5,
+      "fail": 0,
+      "partial": 0,
+      "checks": [
+        {
+          "category": "transformation",
+          "item": "ValueMapper_Runtime",
+          "status": "PASS",
+          "detail": "Mapped to value_mapper_runtime.py; run(spark, config)=True"
+        },
+        {
+          "category": "api",
+          "item": "run(spark, config)",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "category": "step",
+          "item": "Generate [DataGrid]",
+          "status": "PASS",
+          "detail": "token=df_Generate"
+        },
+        {
+          "category": "step",
+          "item": "Map status [ValueMapper]",
+          "status": "PASS",
+          "detail": "token=df_Map_status"
+        },
+        {
+          "category": "hop",
+          "item": "Generate \u2192 Map status",
+          "status": "PASS",
+          "detail": "destination assignment references source DF"
+        },
+        {
+          "category": "output",
+          "item": "(none in KTR)",
+          "status": "N/A",
+          "detail": "transformation has no output step in source"
+        }
+      ]
+    }
+  ],
+  "sample_job": {
+    "job": "samples/Jobs/Master.kjb",
+    "module": "databricks_project\\src\\pentaho_migration\\jobs\\master.py",
+    "checks": [
+      {
+        "category": "job",
+        "item": "Master",
+        "status": "PASS",
+        "detail": "databricks_project\\src\\pentaho_migration\\jobs\\master.py"
+      },
+      {
+        "category": "job_entry",
+        "item": "Start",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Customer Load",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Sales Load",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Success",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Start \u2192 Customer Load",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Customer Load \u2192 Sales Load",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Sales Load \u2192 Success",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_child_trans",
+        "item": "customer_load",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_child_trans",
+        "item": "sales_load",
+        "status": "PASS",
+        "detail": ""
+      }
+    ]
+  },
+  "master_etl": {
+    "job": "C:\\Users\\Prateek.Kotian\\Desktop\\Pentaho\\Retail & E-commerce\\Retail_ETL_Project\\jobs\\master\\Master_ETL.kjb",
+    "module": "databricks_project\\src\\pentaho_migration\\jobs\\Master_ETL.py",
+    "checks": [
+      {
+        "category": "job",
+        "item": "Master_ETL",
+        "status": "PASS",
+        "detail": "module=True graph=True"
+      },
+      {
+        "category": "job_entry",
+        "item": "Start [SPECIAL]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Log Job Started [WRITE_TO_LOG]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Initialize Variables [SET_VARIABLES]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Echo Batch Context [SHELL]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Create Log Folder [CREATE_FOLDER]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Create Reject Folder [CREATE_FOLDER]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Create Output Folder [CREATE_FOLDER]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Create Archive Folder [CREATE_FOLDER]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Create Audit Folder [CREATE_FOLDER]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Folders Ready [SPECIAL]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Wait For Source Flag Optional [WAIT_FOR_FILE]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Archive Previous Outputs [ZIP_FILE]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Copy Prior Logs To Archive [COPY_FILES]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Log Init Complete [WRITE_TO_LOG]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Load Master Data [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Load Master Data \u2192 load_master_data.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Load Customers [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Load Customers \u2192 load_customer_data.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Load Products [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Load Products \u2192 load_product_data.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Load Inventory [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Load Inventory \u2192 load_inventory_data.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Load Sales [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Load Sales \u2192 load_sales_data.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Load Finance [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Load Finance \u2192 load_finance_data.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Load Reporting [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Load Reporting \u2192 load_reporting_data.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Cleanup Temporary Files [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Cleanup Temporary Files \u2192 cleanup.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Generate Audit Report [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Generate Audit Report \u2192 audit.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Success Email Dummy [JOB]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "child_job",
+        "item": "Success Email Dummy \u2192 notification.py",
+        "status": "PASS",
+        "detail": "expanded child JOB graph with hop engine"
+      },
+      {
+        "category": "job_entry",
+        "item": "Log Job Completed [WRITE_TO_LOG]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Success [SUCCESS]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Evaluate Retry Allowed [SIMPLE_EVAL]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Retry Delay [DELAY]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Increment Retry Count [SET_VARIABLES]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Log Failure [WRITE_TO_LOG]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Failure Email Dummy [MAIL]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Abort on Failure [ABORT]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_entry",
+        "item": "Retry Gate [SPECIAL]",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Start \u2192 Log Job Started (eval=Y, unc=Y)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Log Job Started \u2192 Initialize Variables (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Initialize Variables \u2192 Echo Batch Context (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Echo Batch Context \u2192 Create Log Folder (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Create Log Folder \u2192 Create Reject Folder (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Create Reject Folder \u2192 Create Output Folder (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Create Output Folder \u2192 Create Archive Folder (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Create Archive Folder \u2192 Create Audit Folder (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Create Audit Folder \u2192 Folders Ready (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Folders Ready \u2192 Wait For Source Flag Optional (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Wait For Source Flag Optional \u2192 Archive Previous Outputs (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Archive Previous Outputs \u2192 Copy Prior Logs To Archive (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Copy Prior Logs To Archive \u2192 Log Init Complete (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Log Init Complete \u2192 Load Master Data (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Master Data \u2192 Load Customers (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Customers \u2192 Load Products (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Products \u2192 Load Inventory (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Inventory \u2192 Load Sales (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Sales \u2192 Load Finance (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Finance \u2192 Load Reporting (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Reporting \u2192 Cleanup Temporary Files (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Cleanup Temporary Files \u2192 Generate Audit Report (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Generate Audit Report \u2192 Success Email Dummy (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Success Email Dummy \u2192 Log Job Completed (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Log Job Completed \u2192 Success (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Initialize Variables \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Archive Previous Outputs \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Master Data \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Customers \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Products \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Inventory \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Sales \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Finance \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Load Reporting \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Cleanup Temporary Files \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Generate Audit Report \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Log Failure \u2192 Failure Email Dummy (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Failure Email Dummy \u2192 Abort on Failure (eval=Y, unc=Y)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Retry Gate \u2192 Evaluate Retry Allowed (eval=Y, unc=Y)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Evaluate Retry Allowed \u2192 Retry Delay (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Retry Delay \u2192 Increment Retry Count (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Increment Retry Count \u2192 Load Sales (eval=Y, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_hop",
+        "item": "Evaluate Retry Allowed \u2192 Log Failure (eval=N, unc=N)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "category": "job_handler",
+        "item": "ABORT",
+        "status": "PASS",
+        "detail": "handle_abort"
+      },
+      {
+        "category": "job_handler",
+        "item": "COPY_FILES",
+        "status": "PASS",
+        "detail": "handle_copy_files"
+      },
+      {
+        "category": "job_handler",
+        "item": "CREATE_FOLDER",
+        "status": "PASS",
+        "detail": "handle_create_folder"
+      },
+      {
+        "category": "job_handler",
+        "item": "DELAY",
+        "status": "PASS",
+        "detail": "handle_delay"
+      },
+      {
+        "category": "job_handler",
+        "item": "JOB",
+        "status": "PASS",
+        "detail": "handle_job"
+      },
+      {
+        "category": "job_handler",
+        "item": "MAIL",
+        "status": "PASS",
+        "detail": "handle_mail"
+      },
+      {
+        "category": "job_handler",
+        "item": "SET_VARIABLES",
+        "status": "PASS",
+        "detail": "handle_set_variables"
+      },
+      {
+        "category": "job_handler",
+        "item": "SHELL",
+        "status": "PASS",
+        "detail": "handle_shell"
+      },
+      {
+        "category": "job_handler",
+        "item": "SIMPLE_EVAL",
+        "status": "PASS",
+        "detail": "handle_simple_eval"
+      },
+      {
+        "category": "job_handler",
+        "item": "SPECIAL",
+        "status": "PASS",
+        "detail": "handle_special"
+      },
+      {
+        "category": "job_handler",
+        "item": "SUCCESS",
+        "status": "PASS",
+        "detail": "handle_success"
+      },
+      {
+        "category": "job_handler",
+        "item": "WAIT_FOR_FILE",
+        "status": "PASS",
+        "detail": "handle_wait_for_file"
+      },
+      {
+        "category": "job_handler",
+        "item": "WRITE_TO_LOG",
+        "status": "PASS",
+        "detail": "handle_write_to_log"
+      },
+      {
+        "category": "job_handler",
+        "item": "ZIP_FILE",
+        "status": "PASS",
+        "detail": "handle_zip_file"
+      }
+    ]
+  },
+  "retail_coverage": [
+    {
+      "category": "retail_transformation",
+      "item": "Customer_Cleansing.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\customer_cleansing.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Inventory_Cleansing.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\inventory_cleansing.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Product_Cleansing.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\product_cleansing.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Sales_Business_Transform.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\sales_business_transform.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Sales_Cleansing.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\sales_cleansing.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Customer_Cleansing.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_customer_cleansing.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Customer_Enrichment.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_customer_enrichment.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Inventory_Business_Rules.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_inventory_business_rules.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Inventory_Cleansing.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_inventory_cleansing.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Product_Cleansing.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_product_cleansing.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Product_Enrichment.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_product_enrichment.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Sales_Business_Rules.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_sales_business_rules.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Customer_Dimension_Load.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\customer_dimension_load.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Product_Dimension_Load.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\product_dimension_load.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Customer_Dimension_Load.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_customer_dimension_load.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Product_Dimension_Load.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_product_dimension_load.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Inventory_Fact_Load.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\inventory_fact_load.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Sales_Fact_Load.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\sales_fact_load.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_FactInventory_Load.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_fact_inventory_load.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_FactSales_Load.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_fact_sales_load.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Inventory_Lookups.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_inventory_lookups.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Sales_Dimension_Lookups.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_sales_dimension_lookups.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Executive_Dashboard.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_executive_dashboard.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Financial_Calculations.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_financial_calculations.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_KPI_Calculation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_kpi_calculation.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Reporting_Output.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_reporting_output.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Sales_Summary.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_sales_summary.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Customer_Extract.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_customer_extract.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Customer_Profile.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_customer_profile.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Finance_Extract.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_finance_extract.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Inventory_Extract.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_inventory_extract.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Inventory_Profile.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_inventory_profile.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Product_Extract.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_product_extract.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Product_Profile.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_product_profile.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Sales_Extract.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_sales_extract.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Sales_Profile.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_sales_profile.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Customer_Audit.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_customer_audit.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Finance_Audit.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_finance_audit.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Inventory_Audit.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_inventory_audit.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Product_Audit.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_product_audit.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Sales_Audit.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_sales_audit.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Customer_Validation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\customer_validation.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Inventory_Validation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\inventory_validation.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Product_Validation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\product_validation.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "Sales_Validation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\sales_validation.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Customer_Validation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_customer_validation.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Inventory_Validation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_inventory_validation.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Product_Validation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_product_validation.py"
+    },
+    {
+      "category": "retail_transformation",
+      "item": "TR_Sales_Validation.ktr",
+      "status": "PASS",
+      "detail": "databricks_project\\src\\pentaho_migration\\transformations\\retail\\tr_sales_validation.py"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Customer_Data.kjb:Customer_Validation",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Customer_Data.kjb:Customer_Cleansing",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Customer_Data.kjb:Customer_Dimension_Load",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Finance_Data.kjb:FX_Rate_Lookup_Prep",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Finance_Data.kjb:Payments_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Finance_Data.kjb:Payments_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Finance_Data.kjb:Payments_Fact_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Finance_Data.kjb:Shipments_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Finance_Data.kjb:Shipments_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Finance_Data.kjb:Shipments_Fact_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Inventory_Data.kjb:Inventory_Validation",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Inventory_Data.kjb:Inventory_Cleansing",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Inventory_Data.kjb:Inventory_Fact_Load",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Date_Dimension_Generate",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Region_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Region_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Region_Dimension_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Category_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Category_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Category_Dimension_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Supplier_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Supplier_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Supplier_Dimension_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Store_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Store_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Store_Dimension_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Employee_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Employee_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Master_Data.kjb:Employee_Dimension_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Product_Data.kjb:Product_Validation",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Product_Data.kjb:Product_Cleansing",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Product_Data.kjb:Product_Dimension_Load",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Product_Data.kjb:Promotion_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Product_Data.kjb:Promotion_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Product_Data.kjb:Promotion_Dimension_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Reporting_Data.kjb:Reporting_Daily_Sales",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Reporting_Data.kjb:Reporting_Monthly_Sales",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Reporting_Data.kjb:Reporting_Store_Performance",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Reporting_Data.kjb:Reporting_Product_Performance",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Reporting_Data.kjb:Reporting_Inventory_Summary",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Reporting_Data.kjb:Reporting_Customer_Segmentation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Reporting_Data.kjb:Reporting_Promotion_Effectiveness",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Sales_Data.kjb:Sales_Validation",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Sales_Data.kjb:Sales_Cleansing",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Sales_Data.kjb:Sales_Business_Transform",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Sales_Data.kjb:Sales_Fact_Load",
+      "status": "PASS",
+      "detail": "module present"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Sales_Data.kjb:Returns_Validation",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Sales_Data.kjb:Returns_Cleansing",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Load_Sales_Data.kjb:Returns_Fact_Load",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Audit.kjb:Audit_Collect_Metrics",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    },
+    {
+      "category": "job_trans_ref",
+      "item": "Audit.kjb:Audit_Write_Report",
+      "status": "PASS",
+      "detail": "module present (source .ktr missing on disk; placeholder run())"
+    }
+  ]
+}

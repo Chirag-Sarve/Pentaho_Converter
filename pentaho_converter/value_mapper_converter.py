@@ -40,18 +40,24 @@ def mappings_from_step_element(step_el: ET.Element | None) -> list[dict[str, str
     if fields_el is None:
         return mappings
     for field_el in fields_el.findall("field"):
+        # Empty source_value is a valid Pentaho mapping (null/blank → target).
+        has_src = (
+            field_el.find("source_value") is not None
+            or field_el.find("from") is not None
+            or field_el.find("source") is not None
+        )
         src = (
             _child_text(field_el, "source_value")
-            or _child_text(field_el, "source")
             or _child_text(field_el, "from")
+            or _child_text(field_el, "source")
         )
         tgt = (
             _child_text(field_el, "target_value")
-            or _child_text(field_el, "target")
             or _child_text(field_el, "to")
+            or _child_text(field_el, "target")
         )
-        if src:
-            mappings.append({"source": src, "target": tgt})
+        if has_src or src or tgt:
+            mappings.append({"source": src or "", "target": tgt or ""})
     return mappings
 
 
@@ -69,7 +75,12 @@ def _mappings_from_metadata(metadata: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _case_sensitive_from_metadata(metadata: dict[str, Any]) -> bool:
-    """Pentaho defaults to case-sensitive; only case_insensitive is explicit in XML."""
+    """Pentaho defaults to case-sensitive; prefer structured config then attributes."""
+    if "case_sensitive" in metadata and metadata["case_sensitive"] is not None:
+        val = metadata["case_sensitive"]
+        if isinstance(val, bool):
+            return val
+        return str(val).strip().upper() in ("Y", "YES", "TRUE", "1")
     attrs = metadata.get("attributes") or {}
     if "case_sensitive" not in attrs:
         return True
@@ -77,6 +88,15 @@ def _case_sensitive_from_metadata(metadata: dict[str, Any]) -> bool:
     if raw is None or str(raw).strip() == "":
         return True
     return str(raw).strip().upper() in ("Y", "YES", "TRUE", "1")
+
+
+def _non_empty_from_metadata(metadata: dict[str, Any]) -> bool:
+    val = metadata.get("non_empty")
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return False
+    return str(val).strip().upper() in ("Y", "YES", "TRUE", "1")
 
 
 def _default_is_active(default_value: str) -> bool:
@@ -186,6 +206,8 @@ def _build_mapping_expression(
             # Null/empty values pass through unless explicitly mapped (Pentaho semantics).
             expr = f"{expr}.when({empty_expr}, {source_expr})"
 
+        # Default applies only to non-matching values via otherwise() — never
+        # unconditionally overwrite every non-null with the default (Pentaho semantics).
         if default_active:
             expr = f"{expr}.otherwise({_target_literal(default_value, target_type)})"
         elif create_new_field:
@@ -194,17 +216,22 @@ def _build_mapping_expression(
             expr = f"{expr}.otherwise({source_expr})"
         return expr
 
+    # Default-only (no mapping entries): empty/null pass through; all other values → default.
     if default_active:
         return f"when({empty_expr}, {source_expr}).otherwise({_target_literal(default_value, target_type)})"
 
     return None
 
 
-def _unresolved_lines(step_name: str, out_var: str, message: str) -> list[str]:
-    return [
-        f"# WARNING: ValueMapper '{step_name}': {message}",
-        f"{out_var} = spark.createDataFrame([], '_value_mapper_unresolved STRING')",
-    ]
+def _unresolved_lines(
+    step_name: str, out_var: str, message: str, in_df: str | None
+) -> list[str]:
+    lines = [f"# WARNING: ValueMapper '{step_name}': {message}"]
+    if in_df:
+        lines.append(f"{out_var} = {in_df}")
+    else:
+        lines.append(f"{out_var} = spark.range(0).limit(0)")
+    return lines
 
 
 def convert_value_mapper_step(
@@ -217,8 +244,12 @@ def convert_value_mapper_step(
     lines = [f"# Value Mapper: {step_name}"]
 
     if not in_df:
-        lines.append(f"{out_var} = spark.createDataFrame([], '_placeholder STRING')")
-        return lines, "converted"
+        lines.append(
+            f"# WARNING: ValueMapper '{step_name}': no upstream DataFrame; "
+            "preserving empty result"
+        )
+        lines.append(f"{out_var} = spark.range(0).limit(0)")
+        return lines, "partial"
 
     source_field = (metadata.get("field_to_use") or metadata.get("from_field") or "").strip()
     target_field = (metadata.get("target_field") or metadata.get("to_field") or "").strip()
@@ -230,13 +261,25 @@ def convert_value_mapper_step(
     mappings = _mappings_from_metadata(metadata)
     case_sensitive = _case_sensitive_from_metadata(metadata)
     default_active = _default_is_active(default_value)
+    non_empty = _non_empty_from_metadata(metadata)
 
     if not source_field:
-        lines.extend(_unresolved_lines(step_name, out_var, "missing field_to_use in metadata"))
+        lines.extend(
+            _unresolved_lines(
+                step_name, out_var, "missing field_to_use in metadata", in_df
+            )
+        )
         return lines, "partial"
 
     if not mappings and not default_active:
-        lines.extend(_unresolved_lines(step_name, out_var, "no mappings or default defined in metadata"))
+        lines.extend(
+            _unresolved_lines(
+                step_name,
+                out_var,
+                "no mappings or default defined in metadata",
+                in_df,
+            )
+        )
         return lines, "partial"
 
     output_col = target_field or source_field
@@ -254,8 +297,27 @@ def convert_value_mapper_step(
     )
 
     if not mapping_expr:
-        lines.extend(_unresolved_lines(step_name, out_var, "could not build mapping expression from metadata"))
+        lines.extend(
+            _unresolved_lines(
+                step_name,
+                out_var,
+                "could not build mapping expression from metadata",
+                in_df,
+            )
+        )
         return lines, "partial"
 
+    if non_empty:
+        # Only apply mapping when source is non-null and non-empty
+        src = _col(source_field)
+        mapping_expr = (
+            f"when({_is_empty_value_expr(src)}, {src}).otherwise({mapping_expr})"
+        )
+        lines.append("# preserved.non_empty=Y — skip mapping for null/empty source values")
+
     lines.append(f'{out_var} = {in_df}.withColumn("{output_col}", {mapping_expr})')
+    lines.append(
+        f"# preserved.case_sensitive={case_sensitive} mappings={len(mappings)} "
+        f"default={default_value!r}"
+    )
     return lines, "converted"

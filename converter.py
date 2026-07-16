@@ -98,25 +98,32 @@ def main(argv: list[str] | None = None) -> int:
     zip_path = out_dir / f"{input_path.stem}_pyspark.zip"
     zip_path.write_bytes(package_files_as_zip(result.files))
 
-    _print_summary(result.stats, out_dir, zip_path)
+    _print_summary(
+        result.stats,
+        out_dir,
+        zip_path,
+        files_generated=len(result.files),
+    )
     return 0
 
 
-def _print_summary(stats, out_dir: Path, zip_path: Path) -> None:
+def _print_summary(stats, out_dir: Path, zip_path: Path, *, files_generated: int = 0) -> None:
     print("\n" + "=" * 60)
-    print("  Pentaho -> PySpark Conversion Summary")
+    print("  Pentaho -> Databricks Project Conversion Summary")
     print("=" * 60)
     print(f"  Jobs found             : {stats.jobs_found}")
     print(f"  Transformations found  : {stats.transformations_found}")
     print(f"  Steps converted        : {stats.steps_converted}")
     print(f"  Steps approximated     : {stats.steps_approximated}")
     print(f"  Steps skipped          : {stats.steps_skipped}")
+    print(f"  Files generated        : {files_generated}")
     if stats.warnings:
         print(f"  Warnings               : {len(stats.warnings)}")
         for w in stats.warnings:
             print(f"    - {w}")
     print(f"  Output directory       : {out_dir}")
     print(f"  ZIP package            : {zip_path}")
+    print("  Run on Databricks      : Master_ETL.py")
     print("=" * 60 + "\n")
 
 

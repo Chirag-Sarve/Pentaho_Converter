@@ -68,6 +68,9 @@ def _preprocess_fragment(fragment: str) -> str:
     for pattern, repl in replacements:
         result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
 
+    # Pentaho uses '=' for equality; Spark Column expressions require '=='.
+    result = re.sub(r"(?<![!<>=])=(?!=)", "==", result)
+
     if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", result):
         result = f'col("{result}")'
 
@@ -128,7 +131,4 @@ def convert_condition(condition: str) -> str:
     """Convert a filter condition to a PySpark filter expression."""
     if not condition.strip():
         return "lit(True)"
-    converted = convert_formula(condition)
-    if converted.startswith("expr("):
-        return converted
-    return f"expr({condition!r})"
+    return convert_formula(condition)

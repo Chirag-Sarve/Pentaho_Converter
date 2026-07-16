@@ -13,6 +13,9 @@ from .extractor import ZipExtractionError, cleanup_workspace, extract_zip_to_wor
 from .generation_config import GenerationConfig
 from .job_parser import parse_job
 from .models import ConversionResult, ConversionStats, PentahoJob, PentahoTransformation
+from .naming import safe_package_root
+from .project_generator import DatabricksProjectGenerator
+from .project_validator import validate_generated_project
 from .scanner import scan_project
 from .transformation_parser import parse_transformation
 
@@ -26,20 +29,20 @@ def convert_pentaho_project(
     catalog: str | None = None,
     schema: str | None = None,
     data_dir: str | None = None,
+    single_file: bool = False,
 ) -> ConversionResult:
-    """Convert a Pentaho project ZIP into PySpark modules.
+    """Convert a Pentaho project ZIP into a Databricks-ready Python project.
 
-    Parameters
-    ----------
-    zip_data:
-        Raw bytes of the uploaded ZIP file.
-    project_name:
-        Label used in logs and output filenames.
+    By default emits a multi-file package::
 
-    Returns
-    -------
-    ConversionResult
-        Generated files, logs, and statistics.
+        <Project>/
+          Master_ETL.py
+          config.py
+          requirements.txt
+          VALIDATION_REPORT.md
+          jobs/          # one .py per .kjb; transformations inlined as step functions
+
+    Pass ``single_file=True`` to keep the legacy combined ``.py`` output.
     """
     result = ConversionResult()
     logs = result.logs
@@ -98,20 +101,65 @@ def convert_pentaho_project(
                     primary_job = job
                     break
 
-        if ordered:
-            output_name = f"{_safe_filename(project_name)}.py"
-            single_code = generator.generate_single_file(
-                ordered,
-                stats,
-                logs,
-                job=primary_job,
-                project_name=project_name,
-            )
-            output_files = {output_name: single_code}
-            result.main_workflow = output_name
-            logs.append(f"Generated single PySpark file: {output_name}")
+        if single_file:
+            if ordered:
+                output_name = f"{_safe_filename(project_name)}.py"
+                single_code = generator.generate_single_file(
+                    ordered,
+                    stats,
+                    logs,
+                    job=primary_job,
+                    project_name=project_name,
+                )
+                output_files = {output_name: single_code}
+                result.main_workflow = output_name
+                logs.append(f"Generated single PySpark file: {output_name}")
+            else:
+                output_files = {}
         else:
-            output_files = {}
+            project_gen = DatabricksProjectGenerator(
+                generation_config=gen_cfg,
+                code_generator=generator,
+            )
+            output_files = project_gen.generate(
+                project_name=project_name,
+                scan=scan,
+                jobs=jobs,
+                transformations=transformations,
+                ordered_transformations=ordered,
+                primary_job_name=primary_job_name,
+                stats=stats,
+                logs=logs,
+            )
+            root = safe_package_root(project_name)
+            result.main_workflow = f"{root}/Master_ETL.py"
+
+            step_status_map = {
+                (
+                    (
+                        sr.detail.split("Transformation: ")[-1]
+                        if "Transformation:" in (sr.detail or "")
+                        else ""
+                    ),
+                    sr.step_name,
+                ): sr.status
+                for sr in stats.step_results
+            }
+            report = validate_generated_project(
+                project_name=project_name,
+                files=output_files,
+                scan=scan,
+                jobs=jobs,
+                transformations=transformations,
+                step_statuses=step_status_map,
+            )
+            for line in report.to_log_lines():
+                logs.append(line)
+            output_files[f"{root}/VALIDATION_REPORT.md"] = report.to_markdown()
+            if not report.ok:
+                for issue in report.issues:
+                    if issue.severity == "error":
+                        stats.warnings.append(f"{issue.code}: {issue.message}")
 
         logs.append("PySpark generation completed.")
         logs.append("Conversion finished.")
@@ -139,6 +187,28 @@ def convert_pentaho_project(
         )
         result.project_inventory = inventory
         result.lineage = lineage
+
+        from .code_navigation import build_code_navigation, build_step_to_file
+
+        # Prefer Master_ETL for navigation; fall back to first job module
+        primary_code = output_files.get(result.main_workflow, "") if result.main_workflow else ""
+        if not primary_code:
+            for path, content in output_files.items():
+                norm = path.replace("\\", "/")
+                if "/jobs/" in norm and path.endswith(".py") and not path.endswith("__init__.py"):
+                    primary_code = content
+                    break
+        if not primary_code and output_files:
+            primary_code = next(iter(output_files.values()))
+        if primary_code:
+            result.code_navigation = build_code_navigation(
+                primary_code,
+                lineage,
+                inventory,
+                step_to_file=build_step_to_file(transformations),
+                step_results=stats.step_results,
+                generated_file=result.main_workflow or "",
+            )
 
     except ZipExtractionError as exc:
         logs.append(f"ERROR: {exc}")

@@ -38,28 +38,48 @@ def _format_row_tuple(values: list[str], types: list[str]) -> str:
     return "(" + ", ".join(parts) + ")"
 
 
-def _constant_lit_expr(value: str, type_name: str, set_empty_string: bool = False) -> str:
+def _constant_lit_expr(
+    value: str,
+    type_name: str,
+    set_empty_string: bool = False,
+    *,
+    format_mask: str = "",
+    decimal: str = "",
+    group: str = "",
+) -> str:
     """Build a PySpark lit()/to_date()/to_timestamp() expression for a constant."""
+    if set_empty_string:
+        return 'lit("")'
     if value is None or value == "":
-        if set_empty_string:
-            return 'lit("")'
         return "lit(None)"
     t = (type_name or "String").lower()
     if "bool" in t:
         return f"lit({value.upper() in ('Y', 'TRUE', '1', 'T')})"
     if t in ("integer", "int"):
+        cleaned = value
+        if group:
+            cleaned = cleaned.replace(group, "")
         try:
-            return f"lit({int(value)})"
+            return f"lit({int(float(cleaned))})"
         except ValueError:
             return f"lit({value!r})"
     if t in ("number", "bignumber", "float", "double"):
+        cleaned = value
+        if group:
+            cleaned = cleaned.replace(group, "")
+        if decimal and decimal != ".":
+            cleaned = cleaned.replace(decimal, ".")
         try:
-            return f"lit({float(value)})"
+            return f"lit({float(cleaned)})"
         except ValueError:
             return f"lit({value!r})"
     if t == "date":
+        if format_mask:
+            return f'to_date(lit({value!r}), {format_mask!r})'
         return f'to_date(lit({value!r}))'
     if t == "timestamp":
+        if format_mask:
+            return f'to_timestamp(lit({value!r}), {format_mask!r})'
         return f'to_timestamp(lit({value!r}))'
     return f"lit({value!r})"
 
@@ -128,12 +148,14 @@ class RowGeneratorHandler(BaseStepHandler):
 class ConstantHandler(BaseStepHandler):
     """Converts Pentaho Add Constants step."""
 
-    _TYPES = {"constant"}
+    _TYPES = {"constant", "addconstants", "addconstant"}
 
     def can_handle(self, step_type: str) -> bool:
-        return step_type.strip().lower() in self._TYPES
+        return step_type.strip().lower().replace(" ", "") in self._TYPES
 
     def generate_code(self, context: StepContext) -> tuple[list[str], str]:
+        from ..metadata_propagation import get_converter_metadata
+
         step = context.step
         in_df = context.input_df_name()
         out_var = context.output_df_name()
@@ -144,7 +166,28 @@ class ConstantHandler(BaseStepHandler):
             lines.append(f"{out_var} = spark.createDataFrame([], '_placeholder STRING')")
             return lines, "converted"
 
+        metadata = get_converter_metadata(context)
         constants = parse_constant_fields(step_el)
+        if not constants and metadata.get("constants"):
+            from ..step_xml import ConstantField
+
+            constants = [
+                ConstantField(
+                    name=c.get("name", ""),
+                    type_name=c.get("type_name") or c.get("type", "String"),
+                    value=c.get("value", ""),
+                    set_empty_string=bool(c.get("set_empty_string")),
+                    format=c.get("format", ""),
+                    currency=c.get("currency", ""),
+                    decimal=c.get("decimal", ""),
+                    group=c.get("group", ""),
+                    length=c.get("length", ""),
+                    precision=c.get("precision", ""),
+                )
+                for c in metadata["constants"]
+                if c.get("name")
+            ]
+
         if not constants:
             if in_df:
                 lines.append(f"{out_var} = {in_df}")
@@ -160,7 +203,25 @@ class ConstantHandler(BaseStepHandler):
             )
 
         for const in constants:
-            expr = _constant_lit_expr(const.value, const.type_name, const.set_empty_string)
+            expr = _constant_lit_expr(
+                const.value,
+                const.type_name,
+                const.set_empty_string,
+                format_mask=const.format,
+                decimal=const.decimal,
+                group=const.group,
+            )
             lines.append(f'{out_var} = {out_var}.withColumn("{const.name}", {expr})')
+            preserved = []
+            if const.format:
+                preserved.append(f"format={const.format!r}")
+            if const.currency:
+                preserved.append(f"currency={const.currency!r}")
+            if const.length:
+                preserved.append(f"length={const.length!r}")
+            if const.precision:
+                preserved.append(f"precision={const.precision!r}")
+            if preserved:
+                lines.append(f"# preserved.{const.name}: {', '.join(preserved)}")
 
         return lines, "converted"

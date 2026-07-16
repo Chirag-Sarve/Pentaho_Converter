@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
 
 from .generation_config import GenerationConfig
+from .generated_code_style import remove_generator_comments
 from .graph import StepDAG
 from .models import (
     ConversionStats,
@@ -24,9 +24,21 @@ def _safe_filename(name: str) -> str:
 
 def _safe_func_name(name: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_]", "_", name.strip())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
     if cleaned and cleaned[0].isdigit():
         cleaned = f"trans_{cleaned}"
     return cleaned or "transformation"
+
+
+def _safe_df_name(step_name: str) -> str:
+    """Build a readable, valid Python identifier for a step's DataFrame."""
+    cleaned = re.sub(r"[^A-Za-z0-9_]", "_", (step_name or "").strip())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    if not cleaned:
+        cleaned = "step"
+    if cleaned[0].isdigit():
+        cleaned = f"s_{cleaned}"
+    return cleaned
 
 
 class PySparkCodeGenerator:
@@ -54,6 +66,99 @@ class PySparkCodeGenerator:
         )
         return "\n".join(lines)
 
+    def generate_transformation_module(
+        self,
+        transformation: PentahoTransformation,
+        stats: ConversionStats,
+        logs: list[str],
+    ) -> str:
+        """Generate a standalone module exposing ``run(spark, config)`` (legacy / single-file)."""
+        lines: list[str] = []
+        lines.extend(
+            [
+                f'"""PySpark transformation: {transformation.name}."""',
+                "",
+                "from __future__ import annotations",
+                "",
+                "import logging",
+                "from typing import Any, Mapping",
+                "",
+                "from pyspark.sql import SparkSession",
+                "from pyspark.sql.window import Window",
+                "from pyspark.sql.functions import col, lit, when, expr, count, coalesce, broadcast",
+                "from delta.tables import DeltaTable",
+                "from pyspark.sql.functions import upper, lower, trim, ltrim, rtrim, initcap, length",
+                "from pyspark.sql.functions import substring, round, abs, sqrt, ceil, floor, pow",
+                "from pyspark.sql.functions import concat, concat_ws, isnull, regexp_replace, regexp_extract, explode, explode_outer, array",
+                "from pyspark.sql.functions import split, element_at, collect_list, from_csv",
+                "from pyspark.sql.functions import md5, sha1, sha2, crc32, hex, unhex, soundex, lag, lead, rand, randn",
+                "from pyspark.sql.functions import lpad, rpad, greatest, conv, dayofyear, quarter, hour, minute, second",
+                "from pyspark.sql.functions import to_date, to_timestamp, datediff, date_add, add_months, date_format",
+                "from pyspark.sql.functions import unix_timestamp, from_unixtime, current_date, current_timestamp",
+                "from pyspark.sql.functions import year, month, dayofmonth, dayofweek, weekofyear, repeat",
+                "from pyspark.sql.functions import row_number, rank, dense_rank, monotonically_increasing_id",
+                "from pyspark.sql.functions import countDistinct, first, last, levenshtein, sum as _sum, avg, max as _max, min as _min",
+                "from pyspark.sql.functions import stddev_samp, var_samp as variance_samp, to_json, struct",
+                "",
+                "import config",
+                "",
+                "logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')",
+                f"TRANSFORMATION_NAME = {transformation.name!r}",
+                f"SOURCE_KTR = {transformation.file_path.name!r}",
+                "",
+                "TARGET_CATALOG = config.TARGET_CATALOG",
+                "TARGET_SCHEMA = config.TARGET_SCHEMA",
+                "PENTAHO_DATA_DIR = config.PENTAHO_DATA_DIR",
+                "",
+            ]
+        )
+        lines.extend(
+            self._transformation_function_lines(
+                transformation,
+                stats,
+                logs,
+                entrypoint="module",
+            )
+        )
+        lines.append("")
+        lines.append('if __name__ == "__main__":')
+        lines.append('    _spark = SparkSession.builder.appName(TRANSFORMATION_NAME).getOrCreate()')
+        lines.append("    run(_spark, None)")
+        lines.append("")
+        return "\n".join(lines)
+
+    def generate_inlined_transformation_block(
+        self,
+        transformation: PentahoTransformation,
+        stats: ConversionStats,
+        logs: list[str],
+        *,
+        step_counter: int = 1,
+        run_func_name: str | None = None,
+    ) -> tuple[list[str], int, str]:
+        """Emit step functions + ``run_<stem>(spark, config)`` for embedding in a job file.
+
+        Returns ``(code_lines, next_step_counter, run_func_name)``.
+        """
+        from .naming import safe_module_name
+
+        stem = safe_module_name(transformation.file_path.stem or transformation.name)
+        run_name = run_func_name or f"run_{stem}"
+        lines, next_counter = self._transformation_function_lines(
+            transformation,
+            stats,
+            logs,
+            entrypoint="inlined",
+            run_func_name=run_name,
+            step_counter=step_counter,
+            source_ktr=transformation.file_path.name,
+        )
+        logs.append(
+            f"Inlined transformation '{transformation.name}' as {run_name} "
+            f"(steps {step_counter}–{next_counter - 1})"
+        )
+        return lines, next_counter, run_name
+
     def generate_single_file(
         self,
         ordered_transformations: list[PentahoTransformation],
@@ -77,11 +182,6 @@ class PySparkCodeGenerator:
         lines.append("")
 
         for trans in ordered_transformations:
-            lines.append(f"# {'=' * 60}")
-            lines.append(f"# Transformation: {trans.name}")
-            lines.append(f"# Source: {trans.file_path.name}")
-            lines.append(f"# {'=' * 60}")
-            lines.append("")
             lines.extend(
                 self._transformation_function_lines(trans, stats, logs)
             )
@@ -103,29 +203,211 @@ class PySparkCodeGenerator:
         transformation: PentahoTransformation,
         stats: ConversionStats,
         logs: list[str],
-    ) -> list[str]:
-        """Return lines for one ``run_<name>(spark)`` function (no module header)."""
+        *,
+        entrypoint: str = "named",
+        run_func_name: str | None = None,
+        step_counter: int = 1,
+        source_ktr: str | None = None,
+    ) -> list[str] | tuple[list[str], int]:
+        """Return lines for one transformation entry function (no module header).
+
+        ``entrypoint``:
+          - ``named`` → ``def run_<name>(spark):`` (legacy single-file)
+          - ``module`` → ``def run(spark, config=None):`` (standalone module)
+          - ``inlined`` → per-step functions + ``run_<stem>(spark, config)`` for job files
+
+        For ``inlined``, returns ``(lines, next_step_counter)``.
+        """
         dag = StepDAG(transformation.steps, transformation.hops)
         order = dag.topological_sort()
         df_map: dict[str, str] = {}
+        used_df_names: set[str] = set()
 
         for step in transformation.steps:
-            safe = step.name.replace(" ", "_").replace("-", "_")
-            df_map[step.name] = f"df_{safe}"
+            base_name = f"{_safe_df_name(step.name).lower()}_df"
+            df_name = base_name
+            suffix = 2
+            while df_name in used_df_names:
+                df_name = f"{base_name}_{suffix}"
+                suffix += 1
+            used_df_names.add(df_name)
+            df_map[step.name] = df_name
+
+        if entrypoint == "inlined":
+            return self._emit_inlined_steps(
+                transformation,
+                stats,
+                logs,
+                dag=dag,
+                order=order,
+                df_map=df_map,
+                run_func_name=run_func_name or f"run_{_safe_func_name(transformation.name)}",
+                step_counter=step_counter,
+                source_ktr=source_ktr or transformation.file_path.name,
+            )
 
         lines: list[str] = []
-        func_name = _safe_func_name(transformation.name)
-        lines.append(f"def run_{func_name}(spark):")
-        lines.append(f'    """Execute transformation: {transformation.name}"""')
-
-        if transformation.parameters:
-            lines.append("    # Parameters")
-            for key, val in transformation.parameters.items():
-                lines.append(f"    {key} = {val!r}")
+        if entrypoint == "module":
+            lines.append("def run(spark, config=None):")
+            lines.append(f'    """Execute transformation: {transformation.name}"""')
+            lines.append("    config = dict(config or {})")
+            lines.append("    logging.info('Starting transformation %s', TRANSFORMATION_NAME)")
+            if transformation.parameters:
+                for key, val in transformation.parameters.items():
+                    lines.append(f"    {key} = config.get({key!r}, {val!r})")
+            if transformation.variables:
+                for key, val in transformation.variables.items():
+                    lines.append(f"    {key} = config.get({key!r}, {val!r})")
+        else:
+            func_name = _safe_func_name(transformation.name)
+            lines.append(f"def run_{func_name}(spark):")
+            lines.append(f'    """Execute transformation: {transformation.name}"""')
+            if transformation.parameters:
+                for key, val in transformation.parameters.items():
+                    lines.append(f"    {key} = {val!r}")
 
         lines.append("")
         last_output: str | None = None
         lineage_map: dict[str, set[str]] = {}
+
+        for step_number, step_name in enumerate(order, start=1):
+            step = next((s for s in transformation.steps if s.name == step_name), None)
+            if step is None:
+                continue
+
+            input_cols: set[str] = set()
+            for pred in dag.predecessors(step_name):
+                input_cols |= lineage_map.get(pred, set())
+
+            ctx = StepContext(
+                transformation=transformation,
+                step=step,
+                dag=dag,
+                df_variable_map=df_map,
+                extra={
+                    "input_columns": sorted(input_cols),
+                    "generation_config": self.generation_config,
+                },
+            )
+            outcome = self.registry.convert_step(step.step_type, ctx)
+
+            lines.append(f"    # Step {step_number} : {step.name}")
+            out_df = df_map.get(step_name, "")
+            code_lines = remove_generator_comments(list(outcome.code_lines))
+
+            # Continuity safety net: never leave a step without an output DF assignment.
+            has_out_assign = any(
+                cl.strip().startswith(f"{out_df} =") for cl in code_lines if out_df
+            )
+            prior_branch_assigned = bool(out_df) and any(
+                cl.strip().startswith(f"{out_df} =") for cl in lines
+            )
+            if out_df and not has_out_assign and not prior_branch_assigned:
+                preds = dag.predecessors(step_name)
+                upstream = df_map.get(preds[0]) if preds else None
+                if upstream:
+                    code_lines.append(f"{out_df} = {upstream}")
+                else:
+                    code_lines.append(f"{out_df} = spark.range(0).limit(0)")
+                if outcome.status == "converted":
+                    outcome.status = "partial"
+                warn = (
+                    f"Step '{step.name}' generated no DataFrame assignment; "
+                    "upstream preserved for continuity"
+                )
+                if warn not in outcome.warnings:
+                    outcome.warnings.append(warn)
+
+            for cl in code_lines:
+                lines.append(f"    {cl}")
+                stripped = cl.strip()
+                if out_df and stripped.startswith(f"{out_df} ="):
+                    last_output = out_df
+
+            self._record_step_outcome(stats, logs, transformation, step, outcome)
+
+            from .lineage import infer_output_columns
+            from .validation.step_validators import parse_step_config
+
+            parsed = parse_step_config(ctx)
+            lineage_map[step_name] = infer_output_columns(
+                step.step_type, parsed, input_cols, outcome.code_lines
+            )
+
+            if last_output is None:
+                last_output = df_map.get(step_name)
+            lines.append("")
+
+        if last_output:
+            if entrypoint == "module":
+                lines.append("    logging.info('Finished transformation %s', TRANSFORMATION_NAME)")
+            lines.append(f"    return {last_output}")
+        else:
+            lines.append("    return spark.createDataFrame([], '_placeholder STRING')")
+
+        lines.append("")
+        return lines
+
+    def _record_step_outcome(
+        self,
+        stats: ConversionStats,
+        logs: list[str],
+        transformation: PentahoTransformation,
+        step,
+        outcome,
+    ) -> None:
+        if not hasattr(stats, "step_outcomes"):
+            stats.step_outcomes = []
+        stats.step_outcomes.append(outcome)
+
+        detail_bits = [f"Transformation: {transformation.name}"]
+        detail_bits.extend(outcome.errors + outcome.warnings)
+        stats.step_results.append(
+            StepConversionResult(
+                step_name=step.name,
+                step_type=step.step_type,
+                status=outcome.status,
+                detail="; ".join(detail_bits),
+                semantic_score=outcome.semantic_score,
+                warnings=outcome.warnings,
+                errors=outcome.errors,
+            )
+        )
+        if outcome.status == "converted":
+            stats.steps_converted += 1
+        elif outcome.status in ("partial", "partially_supported", "approximated", "manual_required"):
+            stats.steps_approximated += 1
+        else:
+            stats.steps_skipped += 1
+            logs.append(
+                f"Step '{step.name}' ({step.step_type}): {outcome.status} — "
+                f"{'; '.join(outcome.errors[:2])}"
+            )
+        for w in outcome.warnings:
+            if w not in stats.warnings:
+                stats.warnings.append(w)
+
+    def _emit_inlined_steps(
+        self,
+        transformation: PentahoTransformation,
+        stats: ConversionStats,
+        logs: list[str],
+        *,
+        dag: StepDAG,
+        order: list[str],
+        df_map: dict[str, str],
+        run_func_name: str,
+        step_counter: int,
+        source_ktr: str,
+    ) -> tuple[list[str], int]:
+        """Emit per-step functions + a run_* orchestrator preserving Pentaho order."""
+        lines: list[str] = []
+
+        last_output: str | None = None
+        lineage_map: dict[str, set[str]] = {}
+        step_plan: list[tuple[str, str, list[str], str]] = []
+        # (step_fn, out_df, pred_dfs, step_name)
+        counter = step_counter
 
         for step_name in order:
             step = next((s for s in transformation.steps if s.name == step_name), None)
@@ -147,43 +429,60 @@ class PySparkCodeGenerator:
                 },
             )
             outcome = self.registry.convert_step(step.step_type, ctx)
-
-            lines.append(f"    # Step: {step.name} ({step.step_type}) [{outcome.status}]")
             out_df = df_map.get(step_name, "")
-            for cl in outcome.code_lines:
-                lines.append(f"    {cl}")
-                stripped = cl.strip()
-                if out_df and stripped.startswith(f"{out_df} ="):
-                    last_output = out_df
+            code_lines = remove_generator_comments(list(outcome.code_lines))
 
-            if not hasattr(stats, "step_outcomes"):
-                stats.step_outcomes = []
-            stats.step_outcomes.append(outcome)
+            preds = dag.predecessors(step_name)
+            pred_dfs = [df_map[p] for p in preds if p in df_map]
 
-            stats.step_results.append(
-                StepConversionResult(
-                    step_name=step.name,
-                    step_type=step.step_type,
-                    status=outcome.status,
-                    detail="; ".join(outcome.errors + outcome.warnings) or f"Transformation: {transformation.name}",
-                    semantic_score=outcome.semantic_score,
-                    warnings=outcome.warnings,
-                    errors=outcome.errors,
-                )
+            has_out_assign = any(
+                cl.strip().startswith(f"{out_df} =") for cl in code_lines if out_df
             )
-            if outcome.status == "converted":
-                stats.steps_converted += 1
-            elif outcome.status in ("partial", "partially_supported", "approximated", "manual_required"):
-                stats.steps_approximated += 1
-            else:
-                stats.steps_skipped += 1
-                logs.append(
-                    f"Step '{step.name}' ({step.step_type}): {outcome.status} — "
-                    f"{'; '.join(outcome.errors[:2])}"
+            if out_df and not has_out_assign:
+                upstream = pred_dfs[0] if pred_dfs else None
+                if upstream:
+                    code_lines.append(f"{out_df} = {upstream}")
+                else:
+                    code_lines.append(f"{out_df} = spark.range(0).limit(0)")
+                if outcome.status == "converted":
+                    outcome.status = "partial"
+                warn = (
+                    f"Step '{step.name}' generated no DataFrame assignment; "
+                    "upstream preserved for continuity"
                 )
-            for w in outcome.warnings:
-                if w not in stats.warnings:
-                    stats.warnings.append(w)
+                if warn not in outcome.warnings:
+                    outcome.warnings.append(warn)
+
+            step_fn = f"step_{counter:02d}_{_safe_func_name(step.name)}"
+            counter += 1
+
+            param_parts = ["spark"]
+            param_parts.extend(pred_dfs)
+            param_parts.append("config")
+            signature = ", ".join(param_parts)
+
+            lines.append(f"# Step {counter} : {step.name}")
+            lines.append(f"def {step_fn}({signature}):")
+            lines.append(f'    logging.info("Running {step.step_type}: {step.name}")')
+            if transformation.parameters:
+                for key, val in transformation.parameters.items():
+                    lines.append(f"    {key} = config.get({key!r}, {val!r})")
+            if transformation.variables:
+                for key, val in transformation.variables.items():
+                    lines.append(f"    {key} = config.get({key!r}, {val!r})")
+            for cl in code_lines:
+                lines.append(f"    {cl}")
+            if out_df:
+                lines.append(f"    return {out_df}")
+            else:
+                lines.append("    return spark.createDataFrame([], '_placeholder STRING')")
+            lines.append("")
+
+            step_plan.append((step_fn, out_df or "None", pred_dfs, step.name))
+            if out_df:
+                last_output = out_df
+
+            self._record_step_outcome(stats, logs, transformation, step, outcome)
 
             from .lineage import infer_output_columns
             from .validation.step_validators import parse_step_config
@@ -193,17 +492,39 @@ class PySparkCodeGenerator:
                 step.step_type, parsed, input_cols, outcome.code_lines
             )
 
-            if last_output is None:
-                last_output = df_map.get(step_name)
-            lines.append("")
+        lines.append(f"def {run_func_name}(spark, config=None):")
+        lines.append(f'    """Run {transformation.name}."""')
+        lines.append("    config = dict(config or {})")
+        lines.append(
+            f'    logging.info("Starting transformation: {transformation.name} ({source_ktr})")'
+        )
+        if transformation.parameters:
+            for key, val in transformation.parameters.items():
+                lines.append(f"    config.setdefault({key!r}, {val!r})")
+                lines.append(f"    {key} = config[{key!r}]")
+        if transformation.variables:
+            for key, val in transformation.variables.items():
+                lines.append(f"    config.setdefault({key!r}, {val!r})")
+                lines.append(f"    {key} = config[{key!r}]")
+        lines.append("")
 
+        for step_fn, out_df, pred_dfs, _sname in step_plan:
+            call_args = ["spark"] + pred_dfs + ["config"]
+            if out_df and out_df != "None":
+                lines.append(f"    {out_df} = {step_fn}({', '.join(call_args)})")
+            else:
+                lines.append(f"    {step_fn}({', '.join(call_args)})")
+
+        lines.append("")
         if last_output:
+            lines.append(
+                f'    logging.info("Finished transformation: {transformation.name}")'
+            )
             lines.append(f"    return {last_output}")
         else:
             lines.append("    return spark.createDataFrame([], '_placeholder STRING')")
-
         lines.append("")
-        return lines
+        return lines, counter
 
     @staticmethod
     def _main_spark_bootstrap(app_name: str) -> list[str]:
@@ -233,10 +554,6 @@ class PySparkCodeGenerator:
         """Return ``run_workflow(spark)`` — the Databricks notebook entry point."""
         job_name = job.name if job else "pentaho_migration"
         lines = [
-            f"# {'=' * 60}",
-            "# Workflow entry points",
-            f"# {'=' * 60}",
-            "",
             "def run_workflow(spark):",
             f'    """Run all Pentaho transformations for job: {job_name}',
             "",
@@ -353,32 +670,32 @@ class PySparkCodeGenerator:
         return "\n".join(lines)
 
     def _file_header(self, title: str, source: str) -> list[str]:
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         catalog = self.generation_config.catalog or "main"
         schema = self.generation_config.schema or "default"
         data_dir = self.generation_config.data_dir or "/Volumes/main/default/pentaho_data"
         return [
-            '"""',
-            f"Auto-generated PySpark code from Pentaho: {title}",
-            f"Source: {source}",
-            f"Generated: {ts}",
-            '"""',
+            f'"""PySpark transformation: {title}."""',
             "",
-            "# Databricks Unity Catalog — edit to match your workspace",
             f"TARGET_CATALOG = {catalog!r}",
             f"TARGET_SCHEMA = {schema!r}",
-            "# Upload CSV/source files from the Pentaho ZIP to this folder (Unity Volume or DBFS)",
             f"PENTAHO_DATA_DIR = {data_dir!r}",
             "",
             "from pyspark.sql import SparkSession",
             "from pyspark.sql.window import Window",
             "from pyspark.sql.functions import col, lit, when, expr, count, coalesce, broadcast",
+            "from delta.tables import DeltaTable",
             "from pyspark.sql.functions import upper, lower, trim, ltrim, rtrim, initcap, length",
             "from pyspark.sql.functions import substring, round, abs, sqrt, ceil, floor, pow",
-            "from pyspark.sql.functions import concat, isnull, regexp_replace, explode, array",
-            "from pyspark.sql.functions import to_date, to_timestamp, datediff, date_add, add_months",
-            "from pyspark.sql.functions import year, month, dayofmonth, dayofweek, weekofyear",
+            "from pyspark.sql.functions import concat, concat_ws, isnull, regexp_replace, regexp_extract, explode, explode_outer, array",
+            "from pyspark.sql.functions import split, element_at, collect_list, from_csv",
+            "from pyspark.sql.functions import md5, sha1, sha2, crc32, hex, unhex, soundex, lag, lead, rand, randn",
+            "from pyspark.sql.functions import lpad, rpad, greatest, conv, dayofyear, quarter, hour, minute, second",
+            "from pyspark.sql.functions import to_date, to_timestamp, datediff, date_add, add_months, date_format",
+            "from pyspark.sql.functions import unix_timestamp, from_unixtime, current_date, current_timestamp",
+            "from pyspark.sql.functions import year, month, dayofmonth, dayofweek, weekofyear, repeat",
             "from pyspark.sql.functions import row_number, rank, dense_rank, monotonically_increasing_id",
             "from pyspark.sql.functions import countDistinct, first, last, levenshtein, sum as _sum, avg, max as _max, min as _min",
+            # Spark exposes sample variance as var_samp (alias kept for generated aggs).
+            "from pyspark.sql.functions import stddev_samp, var_samp as variance_samp, to_json, struct",
             "",
         ]

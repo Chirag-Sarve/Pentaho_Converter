@@ -1,0 +1,1309 @@
+{
+  "generated_at": "2026-07-15T12:23:28.600450+00:00",
+  "target_percentage": 100.0,
+  "overall_percentage": 93.32,
+  "source_counts": {
+    "ktr_on_disk": 60,
+    "kjb_on_disk": 12,
+    "ktr_missing_but_job_referenced": 38
+  },
+  "checklist": [
+    {
+      "checklist": "Every .ktr converted",
+      "pass": 60,
+      "partial": 38,
+      "fail": 0,
+      "na": 0,
+      "total_scored": 98,
+      "percentage": 80.61,
+      "met_100": false
+    },
+    {
+      "checklist": "Every .kjb converted",
+      "pass": 12,
+      "partial": 0,
+      "fail": 0,
+      "na": 0,
+      "total_scored": 12,
+      "percentage": 100.0,
+      "met_100": true
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "pass": 1545,
+      "partial": 49,
+      "fail": 178,
+      "na": 0,
+      "total_scored": 1772,
+      "percentage": 88.57,
+      "met_100": false
+    },
+    {
+      "checklist": "Every job entry converted",
+      "pass": 255,
+      "partial": 0,
+      "fail": 0,
+      "na": 0,
+      "total_scored": 255,
+      "percentage": 100.0,
+      "met_100": true
+    },
+    {
+      "checklist": "Every hop converted",
+      "pass": 2263,
+      "partial": 0,
+      "fail": 0,
+      "na": 2,
+      "total_scored": 2263,
+      "percentage": 100.0,
+      "met_100": true
+    },
+    {
+      "checklist": "Every variable converted",
+      "pass": 125,
+      "partial": 0,
+      "fail": 0,
+      "na": 37,
+      "total_scored": 125,
+      "percentage": 100.0,
+      "met_100": true
+    },
+    {
+      "checklist": "Every parameter converted",
+      "pass": 488,
+      "partial": 0,
+      "fail": 12,
+      "na": 10,
+      "total_scored": 500,
+      "percentage": 97.6,
+      "met_100": false
+    },
+    {
+      "checklist": "Every lookup converted",
+      "pass": 52,
+      "partial": 16,
+      "fail": 11,
+      "na": 0,
+      "total_scored": 79,
+      "percentage": 75.95,
+      "met_100": false
+    },
+    {
+      "checklist": "Every output converted",
+      "pass": 285,
+      "partial": 17,
+      "fail": 0,
+      "na": 0,
+      "total_scored": 302,
+      "percentage": 97.19,
+      "met_100": false
+    }
+  ],
+  "gap_count": 321,
+  "gaps": [
+    {
+      "checklist": "Every .ktr converted",
+      "key": "FX_Rate_Lookup_Prep.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Payments_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Payments_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Payments_Fact_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Shipments_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Shipments_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Shipments_Fact_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Date_Dimension_Generate.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Region_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Region_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Region_Dimension_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Category_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Category_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Category_Dimension_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Supplier_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Supplier_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Supplier_Dimension_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Store_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Store_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Store_Dimension_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Employee_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Employee_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Employee_Dimension_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Promotion_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Promotion_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Promotion_Dimension_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Reporting_Daily_Sales.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Reporting_Monthly_Sales.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Reporting_Store_Performance.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Reporting_Product_Performance.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Reporting_Inventory_Summary.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Reporting_Customer_Segmentation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Reporting_Promotion_Effectiveness.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Returns_Validation.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Returns_Cleansing.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Returns_Fact_Load.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Audit_Collect_Metrics.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every .ktr converted",
+      "key": "Audit_Write_Report.ktr (missing)",
+      "status": "PARTIAL",
+      "detail": "placeholder module closes orchestration gap"
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Calculator_Variants:Calc empty [Calculator]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Customer_Cleansing:Normalize Phone Numbers [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Customer_Cleansing:Remove Invalid Characters [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Inventory_Cleansing:Normalize Product Codes Spaces [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Inventory_Cleansing:Null If Placeholder Tokens [NullIf]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Inventory_Cleansing:Standardize Units [ValueMapper]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Product_Cleansing:Standardize SKU Separators [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Normalize Promo Code [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Lookup Holiday Flag [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Customer Lifetime Revenue [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Store Revenue Aggregate [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Employee Sales Aggregate [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Returned Revenue Aggregate [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Cancelled For Aggregate? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Sum Cancelled Revenue [MemoryGroupBy]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Average Basket Metrics [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Attach Customer LTV [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Attach Store Revenue [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Business_Transform:Attach Employee Sales [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Cleansing:Empty Stream Guard? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Cleansing:Add Validation Batch [Constant]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Cleansing:Soft Lookup DimCustomer [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Cleansing:Soft Lookup DimProduct [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Cleansing:Soft Lookup DimStore [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Cleansing:Valid Sales Row? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Cleansing:Write Valid Sales [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Cleansing:Route Rejects [Constant]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Customer_Cleansing:Normalize Phone Numbers [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Customer_Cleansing:Remove Invalid Characters [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Customer_Enrichment:Region Lookup [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Customer_Enrichment:Store Lookup [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Business_Rules:Dead Stock? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Business_Rules:Warehouse Balancing [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Business_Rules:Inventory Summary Agg [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Business_Rules:Reorder Rows? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Business_Rules:Dead Rows For Report? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Business_Rules:Write Dead Stock Report [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Business_Rules:Write Reorder Report [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Cleansing:Normalize Product Codes Spaces [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Cleansing:Null If Placeholder Tokens [NullIf]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Cleansing:Standardize Units [ValueMapper]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Cleansing:Standardize SKU Separators [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Enrichment:Database Join Category SK [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Normalize Promo Code [ReplaceString]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Lookup Holiday Flag [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Customer Lifetime Revenue [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Store Revenue Aggregate [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Employee Sales Aggregate [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Returned Revenue Aggregate [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Cancelled For Aggregate? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Sum Cancelled Revenue [MemoryGroupBy]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Average Basket Metrics [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Attach Customer LTV [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Attach Store Revenue [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Business_Rules:Attach Employee Sales [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Customer_Dimension_Load:Detect Existing Customers [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Product_Dimension_Load:Detect Existing Products [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Customer_Dimension_Load:Detect Existing Customers [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Dimension_Load:Detect Existing Products [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Inventory_Fact_Load:CDC Changed Rows? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Inventory_Fact_Load:Apply CDC Date Gate [Formula]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Inventory_Fact_Load:Include CDC Row? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Inventory_Fact_Load:Fact Product Dimension Lookup [DimensionLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Fact_Load:CDC Order Date Filter? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Fact_Load:Apply CDC Compare [Formula]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Fact_Load:Keep CDC Rows? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "Sales_Fact_Load:Lookup Existing Fact [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_FactInventory_Load:CDC Changed Rows? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_FactInventory_Load:Apply CDC Date Gate [Formula]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_FactInventory_Load:Include CDC Row? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_FactInventory_Load:Fact Product Dimension Lookup [DimensionLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_FactSales_Load:CDC Order Date Filter? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_FactSales_Load:Apply CDC Compare [Formula]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_FactSales_Load:Keep CDC Rows? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_FactSales_Load:Lookup Existing Fact [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Lookups:Optional Existing Fact Check [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Dimension_Lookups:Stream Lookup Customer SK [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Dimension_Lookups:Stream Lookup Product SK [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Dimension_Lookups:Stream Lookup Store SK [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Dimension_Lookups:Stream Lookup Employee SK [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Dimension_Lookups:Stream Lookup Promotion SK [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Dimension_Lookups:Stream Lookup Date SK [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Dimension_Lookups:DB Join Customer Soft [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Dimension_Lookups:DB Join Product Soft [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Executive_Dashboard:Exec Metric Changed? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Executive_Dashboard:Lookup Store KPI Onto Dashboard [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Financial_Calculations:Valid Order Id? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Financial_Calculations:Calculate Core Financials [Calculator]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Financial_Calculations:Compute P&L Measures [Formula]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Financial_Calculations:Add Reporting Currency Code [Constant]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Financial_Calculations:Lookup Daily Rolling Onto Lines [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Financial_Calculations:DB Join Store Dim Optional [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_KPI_Calculation:DB Join Region For Store KPI [DBJoin]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_KPI_Calculation:KPI Revenue Positive? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Reporting_Output:Read P&L Executive [CsvInput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Reporting_Output:Unify Report Metadata [Constant]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Reporting_Output:Select P&L Fields [SelectValues]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Reporting_Output:Clone For Multi Format Export [CloneRow]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Reporting_Output:Excel Output Reports [ExcelOutput]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Reporting_Output:Report Has Revenue? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Customer_Extract:File Found? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Customer_Extract:Log File Ready [WriteToLog]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Customer_Profile:Overall Null Statistics [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Validate payments.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Validate returns.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Validate exchange_rates.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Validate daily_sales_targets.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Required Finance Files Found? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Log Files Ready [WriteToLog]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Read Fixed FX Reference [FixedInput]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Lookup Inventory Cost [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Lookup Return Refund [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Lookup Payment Amount [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Lookup FX Rate [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Count Extracted Finance Rows [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Reject Invalid Currency? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Finance_Extract:Write Extract Rejects [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:Validate inventory.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:Validate stores.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:Validate suppliers.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:Validate products.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:All Files Found? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:Log Files Ready [WriteToLog]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:Stream Lookup Stores [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:Stream Lookup Suppliers [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Extract:Stream Lookup Regions [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Negative Inventory? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Write Negative Inventory [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Has Duplicates? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Write Duplicate Inventory [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Inactive Products? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Write Inactive Products [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Slow Moving? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Write Slow Moving Items [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Inventory_Profile:Check Fast Moving [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Extract:Validate products.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Extract:Validate categories.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Extract:Validate suppliers.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Extract:All Files Found? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Extract:Log Files Ready [WriteToLog]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Profile:Null Analysis Aggregate [MemoryGroupBy]",
+      "status": "PARTIAL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Profile:Duplicates Only? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Profile:Inactive Products? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Profile:Write Inactive Products [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Profile:Missing Supplier? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Profile:Invalid Category? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Product_Profile:Write Invalid Category Products [TextFileOutput]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Validate orders.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Validate order_items.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Validate payments.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Validate shipments.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Validate returns.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Validate exchange_rates.csv [GetFileNames]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:All Files Found? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Log Files Ready [WriteToLog]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Stream Lookup Payments [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Stream Lookup Shipments [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Stream Lookup Returns [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Extract:Stream Lookup FX Rates [StreamLookup]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Profile:Cancelled Orders? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Profile:Count Cancelled Orders [MemoryGroupBy]",
+      "status": "FAIL",
+      "detail": ""
+    },
+    {
+      "checklist": "Every transformation step converted",
+      "key": "TR_Sales_Profile:Returned Lines? [FilterRows]",
+      "status": "FAIL",
+      "detail": ""
+    }
+  ],
+  "gap_summary": {
+    "FAIL": 201,
+    "PARTIAL": 120
+  }
+}

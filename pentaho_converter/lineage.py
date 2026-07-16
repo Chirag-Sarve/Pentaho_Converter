@@ -110,8 +110,30 @@ def infer_output_columns(
         sql_cols = _columns_from_sql(str(sql))
         return sql_cols or cols
 
-    if st in ("csvinput", "excelinput", "textfileinput", "jsoninput", "xmlinput", "getxmldata"):
-        return cols
+    if st in (
+        "csvinput", "excelinput", "textfileinput", "oldtextfileinput", "jsoninput", "xmlinput", "getxmldata",
+        "fixedinput", "fixedfileinput", "gzipcsvinput", "s3csvinput", "yamlinput",
+        "propertyinput", "xmlinputstream", "loadfileinput", "accessinput", "sasinput",
+        "xbaseinput", "shapefilereader", "getfilenames", "getsubfolders",
+        "getfilesrowscount", "gettablenames", "randomvalue", "randomccnumbergenerator",
+        "salesforceinput", "ldapinput", "ldifinput", "rssinput", "hl7input",
+        "kafkaconsumer", "kafkaconsumerinput", "kafkastreaminput", "kafka",
+        "mqttconsumer", "mqttconsumerinput", "mqttclient",
+        "jmsconsumer", "jmsconsumerinput", "activemqconsumer",
+        "recordsfromstream", "getrecordsfromstream",
+        "sapinput", "saperpinput",
+    ):
+        names = {f.get("name") for f in parsed.get("fields", []) if isinstance(f, dict) and f.get("name")}
+        # SAP fields often use new_name / field_name rather than name.
+        for f in parsed.get("fields", []) if isinstance(parsed.get("fields"), list) else []:
+            if isinstance(f, dict):
+                if f.get("new_name"):
+                    names.add(f["new_name"])
+                if f.get("field_name"):
+                    names.add(f["field_name"])
+        names.update(c for c in (parsed.get("output_columns") or []) if c)
+        written = columns_written(code) if code else set()
+        return names or written or cols
 
     if st == "constant":
         for c in parsed.get("constants", []):
@@ -133,20 +155,254 @@ def infer_output_columns(
         out = parsed.get("output_columns") or parsed.get("select_columns") or []
         return {c for c in out if c} or cols
 
+    if st in ("setvalueconstant", "setvaluefield"):
+        return cols | columns_written(code)
+
+    if st == "concatfields":
+        target = parsed.get("target_field_name")
+        if target:
+            cols.add(target)
+        if parsed.get("remove_selected_fields"):
+            for f in parsed.get("fields") or []:
+                if f.get("name"):
+                    cols.discard(f["name"])
+        return cols
+
+    if st == "addxml":
+        value_name = parsed.get("value_name")
+        if value_name:
+            cols.add(value_name)
+        return cols
+
+    if st in ("replaceinstring", "stringoperations", "stringcut"):
+        cols.update(columns_written(code))
+        return cols
+
     if st == "groupby":
         keys = set(parsed.get("group_keys", []))
         aggs = {a.get("name") for a in parsed.get("aggregates", []) if a.get("name")}
         return keys | aggs
 
-    if st in ("filterrows", "sortrows", "replacenull", "valuemapper", "formula"):
+    if st == "memorygroupby":
+        keys = set(parsed.get("group_keys", []))
+        aggs = {a.get("name") for a in parsed.get("aggregates", []) if a.get("name")}
+        return keys | aggs
+
+    if st == "analyticquery":
+        cols.update(columns_written(code))
+        for field in parsed.get("analytic_fields") or parsed.get("fields") or []:
+            name = field.get("name") if isinstance(field, dict) else None
+            if name:
+                cols.add(name)
+        return cols
+
+    if st in ("univariatestats", "univariatestatistics", "stepsmetrics", "outputstepsmetrics"):
+        written = columns_written(code)
+        return written if written else cols
+
+    if st in ("filterrows", "sortrows", "replacenull", "valuemapper", "formula",
+              "javafilter", "switchcase", "dummy", "dummytrans", "dummydonothing",
+              "append", "appendstreams", "blockingstep", "block",
+              "detectemptystream", "detectempty",
+              "samplerows", "reservoirsampling",
+              "execsql", "executesql", "sql", "execsqlrow", "executerowsqlscript",
+              "executerowsql", "scriptvaluemod", "javascriptvalue",
+              "modifiedjavascriptvalue", "regexeval", "regularexpression",
+              "ruleaccumulator", "rulesaccumulator", "ruleexecutor", "rulesexecutor",
+              "userdefinedjavaclass", "userdefinedjavaexpression",
+              "mapping", "mappingsubtransformation",
+              "simplemapping", "simplemappingsubtransformation",
+              "mappingoutput", "mappingoutputspecification"):
         cols.update(columns_written(code))
         return cols
 
-    if st in ("mergejoin", "joinrows", "joiner", "streamlookup", "databaselookup"):
+    if st in ("mappinginput", "mappinginputspecification"):
+        names = set(parsed.get("field_names") or [])
+        for field in parsed.get("fields") or []:
+            if isinstance(field, dict) and field.get("name"):
+                names.add(field["name"])
+        if names:
+            if parsed.get("select_unspecified") or parsed.get("include_unspecified_fields"):
+                return cols | names
+            return names
+        cols.update(columns_written(code))
+        return cols
+
+    if st in ("identifylastrow", "identifylastrowinastream"):
+        result_field = parsed.get("result_field") or "result"
+        cols.add(result_field)
+        cols.update(columns_written(code))
+        return cols
+
+    if st in (
+        "unique", "uniquerows", "uniquerowsbyhashset",
+        "uniquerowshashset", "uniquehashset",
+    ):
+        cols.update(columns_written(code))
+        return cols
+
+    if st in ("rownormaliser", "rownormalizer", "normaliser"):
+        written = columns_written(code)
+        return written if written else cols
+
+    if st in ("rowdenormaliser", "rowdenormalizer", "denormaliser"):
+        keys = set(parsed.get("group_fields") or [])
+        targets = {
+            (t.get("target_name") or t.get("field_name"))
+            for t in (parsed.get("target_fields") or [])
+            if isinstance(t, dict) and (t.get("target_name") or t.get("field_name"))
+        }
+        result = keys | targets
+        return result if result else columns_written(code)
+
+    if st in ("flattener", "rowflattener"):
+        field_name = parsed.get("field_name") or ""
+        targets = set(parsed.get("target_fields") or [])
+        if field_name:
+            cols.discard(field_name)
+        cols.update(targets)
+        cols.update(columns_written(code))
+        return cols
+
+    if st == "splitfieldtorows":
+        new_field = parsed.get("new_field") or parsed.get("split_field")
+        if new_field:
+            cols.add(new_field)
+        if parsed.get("include_row_number"):
+            cols.add(parsed.get("row_number_field") or "rownr")
+        cols.update(columns_written(code))
+        return cols
+
+    if st in ("fieldsplitter", "splitfields"):
+        split_field = parsed.get("split_field") or ""
+        if split_field:
+            cols.discard(split_field)
+        for f in parsed.get("fields") or []:
+            if isinstance(f, dict) and f.get("name"):
+                cols.add(f["name"])
+        cols.update(columns_written(code))
+        return cols
+
+    if st in (
+        "mergejoin", "joinrows", "joiner", "mergerows", "mergerow",
+        "multimergejoin", "multiwaymergejoin", "multimerge", "sortedmerge",
+        "xmljoin", "streamlookup", "databaselookup",
+        "dblookup", "dbjoin", "databasejoin", "fuzzymatch",
+    ):
         return cols | columns_written(code)
+
+    if st in ("closuregenerator", "closure"):
+        # Output schema is only parent, child, distance (Pentaho getFields).
+        out = {
+            parsed.get("parent_id_field") or "",
+            parsed.get("child_id_field") or "",
+            parsed.get("distance_field") or "distance",
+        }
+        out.discard("")
+        return out or columns_written(code)
+
+    if st in ("getslavesequence", "getidfromslaveserver", "getidfromslave"):
+        value_name = parsed.get("value_name") or "id"
+        cols.add(value_name)
+        cols.update(columns_written(code))
+        return cols
+
+    if st in ("xslt", "xsltransformation", "xsltransform"):
+        result_field = parsed.get("result_field") or "result"
+        cols.add(result_field)
+        cols.update(columns_written(code))
+        return cols
+
+    # ---- Utility steps ----
+    if st in ("clonerow", "clonerows"):
+        if parsed.get("add_clone_flag"):
+            cols.add(parsed.get("clone_flag_field") or "cloneflag")
+        if parsed.get("add_clone_num"):
+            cols.add(parsed.get("clone_num_field") or "clonenum")
+        cols.update(columns_written(code))
+        return cols
+
+    if st in ("nullif", "ifnull", "iffieldvaluenull", "iffieldvalueisnull", "delay", "delayrow", "writetolog"):
+        cols.update(columns_written(code))
+        return cols
+
+    if st in ("metastructure", "stepmetastructure", "metadatastructureofstream"):
+        out = {
+            parsed.get("position_field") or "Position",
+            parsed.get("fieldname_field") or "Fieldname",
+            parsed.get("comments_field") or "Comments",
+            parsed.get("type_field") or "Type",
+            parsed.get("length_field") or "Length",
+            parsed.get("precision_field") or "Precision",
+            parsed.get("origin_field") or "Origin",
+        }
+        if parsed.get("output_rowcount"):
+            out.add(parsed.get("rowcount_field") or "rowcount")
+        return out
+
+    if st == "tablecompare":
+        cols.update(columns_written(code))
+        for key in (
+            "nr_errors_field", "nr_records_reference_field", "nr_records_compare_field",
+            "key_desc_field", "value_reference_field", "value_compare_field",
+        ):
+            if parsed.get(key):
+                cols.add(parsed[key])
+        cols.add("_tc_diff")
+        return cols
+
+    if st in ("execprocess", "executeaprocess"):
+        cols.add(parsed.get("output_field") or "outputLine")
+        cols.add(parsed.get("error_field") or "errorLine")
+        cols.add(parsed.get("exit_value_field") or "exitValue")
+        cols.update(columns_written(code))
+        return cols
+
+    if st in ("ssh", "runsshcommands"):
+        cols.add(parsed.get("stdout_field") or "stdOut")
+        cols.add(parsed.get("stderr_field") or "stdErr")
+        cols.update(columns_written(code))
+        return cols
+
+    if st in ("edi2xml", "editoxml"):
+        cols.add(parsed.get("output_field") or "xml")
+        cols.update(columns_written(code))
+        return cols
+
+    if st in (
+        "changefileencoding", "fileencoding", "zipfile", "processfiles",
+        "mail", "sendmail", "syslogmessage", "writetosyslog", "sendmessagetosyslog",
+    ):
+        # Side-effect utilities: stream passthrough
+        return cols
 
     cols.update(columns_written(code))
     return cols
+
+
+# Generator-created helper columns — never report as lineage gaps.
+_GENERATED_HELPER_PREFIXES = (
+    "_sort_",
+    "_calc_",
+    "_tmp_",
+    "_vm_",
+    "_sys_",
+    "_join_",
+    "_gb_",
+    "_tfi_",
+    "_out_",
+    "_mapped_",
+    "_cc_",
+    "_mail_",
+    "_xsd_",
+)
+
+
+def _is_generated_helper_column(name: str) -> bool:
+    text = (name or "").strip()
+    if not text:
+        return False
+    return text.startswith(_GENERATED_HELPER_PREFIXES)
 
 
 def validate_column_lineage(
@@ -161,22 +417,37 @@ def validate_column_lineage(
     st = step_type.strip().lower().replace(" ", "")
     if st in (
         "tableinput", "csvinput", "rowgenerator", "datagrid",
-        "jsoninput", "textfileinput", "excelinput", "xmlinput", "getxmldata",
-        "parquetinput", "orcinput", "avroinput",
+        "jsoninput", "textfileinput", "oldtextfileinput", "excelinput", "xmlinput", "getxmldata",
+        "parquetinput", "orcinput", "avroinput", "avrofileinput",
+        "mongodbinput", "mongoinput",
+        "fixedinput", "fixedfileinput", "gzipcsvinput", "s3csvinput", "yamlinput",
+        "propertyinput", "xmlinputstream", "loadfileinput", "accessinput", "sasinput",
+        "xbaseinput", "shapefilereader", "getfilenames", "getsubfolders",
+        "getfilesrowscount", "gettablenames", "randomvalue", "randomccnumbergenerator",
+        "salesforceinput", "ldapinput", "ldifinput", "rssinput", "hl7input",
+        "systeminfo", "cubeinput", "mondrianinput", "olapinput", "mailinput",
+        "getrepositorynames",
+        "sapinput", "saperpinput",
     ):
         return [], []
 
     refs = columns_referenced("\n".join(code_lines))
-    missing = sorted(refs - input_columns)
+    missing = sorted(
+        name for name in (refs - input_columns) if not _is_generated_helper_column(name)
+    )
     if not missing:
         return [], []
 
     if st == "selectvalues":
-        return [
+        return [], [
             f"SelectValues references columns not present upstream: {', '.join(missing)}"
-        ], []
+        ]
 
-    if st in ("filterrows", "calculator", "formula", "replacenull", "stringoperations", "ifnull"):
+    if st in ("filterrows", "calculator", "formula", "replacenull", "stringoperations", "ifnull",
+              "iffieldvaluenull", "iffieldvalueisnull", "nullif",
+              "javafilter", "switchcase", "identifylastrow", "identifylastrowinastream",
+              "regexeval", "regularexpression", "scriptvaluemod",
+              "userdefinedjavaexpression", "execsql", "execsqlrow"):
         return [], [
             f"Column lineage: upstream schema may not include: {', '.join(missing)}"
         ]

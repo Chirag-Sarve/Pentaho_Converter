@@ -31,11 +31,22 @@ class TestKtrRegression(unittest.TestCase):
     def test_all_ktr_files_convert_cleanly(self):
         ktr_files = sorted(ROOT.rglob("*.ktr"))
         self.assertGreater(len(ktr_files), 0, "expected at least one .ktr sample")
+        # Intentionally-partial audit fixtures (unsupported calc / empty calculator).
+        allow_partial = {
+            "Calculator_Variants.ktr",
+        }
         for path in ktr_files:
             with self.subTest(ktr=path.relative_to(ROOT).as_posix()):
                 code, stats = self._convert_ktr(path)
                 self.assertNotIn("_placeholder", code)
+                self.assertNotIn("_calculator_unresolved", code)
                 for step in stats.step_results:
+                    if path.name in allow_partial and step.status in (
+                        "partial",
+                        "partially_supported",
+                    ):
+                        self.assertNotEqual(step.status, "failed")
+                        continue
                     self.assertEqual(
                         step.status,
                         "converted",

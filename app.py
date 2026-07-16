@@ -93,6 +93,7 @@ def convert():
         "analysis": _build_analysis(result),
         "project_inventory": result.project_inventory,
         "lineage": result.lineage,
+        "code_navigation": result.code_navigation,
     })
 
 
@@ -124,11 +125,30 @@ def _build_analysis(result) -> dict:
                 "name": s.step_name,
                 "type": s.step_type,
                 "status": s.status,
+                "display_status": getattr(s, "display_status", "")
+                or (
+                    "CONVERTED WITH WARNINGS"
+                    if s.status == "converted" and getattr(s, "warnings", None)
+                    else (
+                        "CONVERTED (Legacy metadata preserved)"
+                        if s.status == "converted" and getattr(s, "infos", None)
+                        else (
+                            "CONVERTED"
+                            if s.status == "converted"
+                            else (
+                                "PARTIAL"
+                                if s.status in ("partial", "partially_supported", "approximated")
+                                else (s.status or "").upper()
+                            )
+                        )
+                    )
+                ),
                 "semantic_score": int(getattr(s, "semantic_score", 0) * 100),
                 "has_logic": s.status == "converted",
                 "detail": s.detail,
                 "warnings": getattr(s, "warnings", []),
                 "errors": getattr(s, "errors", []),
+                "infos": getattr(s, "infos", []),
             }
             for s in steps
         ],

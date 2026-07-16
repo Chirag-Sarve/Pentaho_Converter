@@ -9,12 +9,21 @@ _AGGREGATE_ALIASES: dict[str, str] = {
     "COUNT ANY": "COUNT_ALL",
     "COUNT_ANY": "COUNT_ALL",
     "COUNT DISTINCT": "COUNT_DISTINCT",
+    "STD_DEV": "STDDEV",
+    "STANDARD_DEVIATION": "STDDEV",
+    "STANDARDDEVIATION": "STDDEV",
+    "CONCAT_COMMA": "CONCAT_COMMA",
+    "CONCATENATE_STRINGS_SEPARATED_BY_,": "CONCAT_COMMA",
+    "CONCATENATE_STRINGS_SEPARATED_BY": "CONCAT_STRING",
+    "CONCAT_STRING": "CONCAT_STRING",
 }
 
 
 def _normalize_agg_type(raw: str) -> str:
-    text = (raw or "SUM").strip().upper()
-    return _AGGREGATE_ALIASES.get(text, text)
+    text = (raw or "SUM").strip().upper().replace(" ", "_")
+    # Re-space common multi-word forms before alias lookup
+    spaced = (raw or "SUM").strip().upper()
+    return _AGGREGATE_ALIASES.get(spaced, _AGGREGATE_ALIASES.get(text, text))
 
 
 def _col(field_name: str) -> str:
@@ -146,7 +155,7 @@ def _apply_output_cast(expr: str, agg_meta: dict[str, Any], metadata: dict[str, 
     return expr
 
 
-def _aggregate_core_expr(agg_type: str, column: str) -> str | None:
+def _aggregate_core_expr(agg_type: str, column: str, agg_meta: dict[str, Any] | None = None) -> str | None:
     mapping: dict[str, str] = {
         "SUM": f"_sum({column})",
         "AVG": f"avg({column})",
@@ -159,8 +168,35 @@ def _aggregate_core_expr(agg_type: str, column: str) -> str | None:
         "FIRST_INCL_NULL": f"first({column}, ignorenulls=False)",
         "LAST": f"last({column}, ignorenulls=True)",
         "LAST_INCL_NULL": f"last({column}, ignorenulls=False)",
+        "STDDEV": f"stddev_samp({column})",
+        "VARIANCE": f"variance_samp({column})",
+        "CONCAT_COMMA": f"concat_ws(',', collect_list({column}))",
     }
-    return mapping.get(agg_type)
+    if agg_type in mapping:
+        return mapping[agg_type]
+
+    meta = agg_meta or {}
+    col_name = (
+        (meta.get("valuefield") or meta.get("subject") or meta.get("name") or "")
+        .replace("`", "")
+    )
+    if agg_type == "MEDIAN":
+        src = col_name or "value"
+        return f'expr("percentile_approx(`{src}`, 0.5)")'
+    if agg_type == "PERCENTILE":
+        raw_p = str(meta.get("valuefield") or "50").strip()
+        try:
+            p = float(raw_p)
+        except ValueError:
+            p = 50.0
+        if p > 1.0:
+            p = p / 100.0
+        src = (meta.get("subject") or meta.get("name") or "value").replace("`", "")
+        return f'expr("percentile_approx(`{src}`, {p})")'
+    if agg_type == "CONCAT_STRING":
+        sep = str(meta.get("valuefield") or "").replace("'", "\\'")
+        return f"concat_ws('{sep}', collect_list({column}))"
+    return None
 
 
 def _aggregate_expr(agg_meta: dict[str, Any], metadata: dict[str, Any]) -> str:
@@ -168,7 +204,7 @@ def _aggregate_expr(agg_meta: dict[str, Any], metadata: dict[str, Any]) -> str:
     subject = _subject_column(agg_meta)
     column = _col(subject)
 
-    expr = _aggregate_core_expr(agg_type, column)
+    expr = _aggregate_core_expr(agg_type, column, agg_meta)
     if expr is None:
         expr = f"_sum({column})  # unknown aggregate: {agg_type}"
 
@@ -184,7 +220,7 @@ def _window_aggregate_expr(
     subject = _subject_column(agg_meta)
     column = _col(subject)
 
-    core = _aggregate_core_expr(agg_type, column)
+    core = _aggregate_core_expr(agg_type, column, agg_meta)
     if core is None:
         core = f"_sum({column})  # unknown aggregate: {agg_type}"
 
@@ -284,9 +320,13 @@ def convert_group_by_step(
             for agg in named_aggregates
         ]
         group_part = _group_part(group_keys)
-        agg_var = f"_{out_var}_gb_agg" if give_back_row else out_var
+        # give_back_row only needs a synthetic default when grouping keys exist.
+        # Spark global aggregation (groupBy().agg) already returns exactly one row
+        # for empty inputs — unionByName would duplicate that row.
+        needs_empty_default = bool(give_back_row and group_keys)
+        agg_var = f"_{out_var}_gb_agg" if needs_empty_default else out_var
         lines.append(f"{agg_var} = {in_df}.{group_part}.agg({', '.join(agg_exprs)})")
-        if give_back_row:
+        if needs_empty_default:
             default_select = _default_empty_row_selectors(group_keys, named_aggregates, metadata)
             lines.append(f"_gb_src_count = {in_df}.agg(count(lit(1)).alias('_gb_n'))")
             lines.append(
@@ -294,6 +334,13 @@ def convert_group_by_step(
                 f".select({', '.join(default_select)})"
             )
             lines.append(f"{out_var} = {agg_var}.unionByName(_gb_default)")
+        elif give_back_row and not group_keys:
+            lines.append(
+                "# INFO: give_back_row=Y — Spark global aggregation already returns "
+                "one row for empty inputs (no _gb_default union required)"
+            )
+            if agg_var != out_var:
+                lines.append(f"{out_var} = {agg_var}")
         elif agg_var != out_var:
             lines.append(f"{out_var} = {agg_var}")
         return lines

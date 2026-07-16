@@ -29,7 +29,25 @@ def _ctx(step_xml: str, step_type: str, step_name: str, with_input: bool = True)
         trans.steps = [step]
         hops = []
     dag = StepDAG(trans.steps, hops)
-    df_map = {s.name: f"df_{s.name.replace(' ', '_')}" for s in trans.steps}
+    df_map = {}
+    for s in trans.steps:
+        safe = s.name.replace(" ", "_")
+        st = (
+            (s.step_type or "")
+            .strip()
+            .lower()
+            .replace(" ", "")
+            .replace("(", "")
+            .replace(")", "")
+        )
+        if st in {"dummy", "dummytrans", "dummydonothing"}:
+            lower = safe.lower()
+            if lower == "dummy" or lower.startswith("dummy_"):
+                df_map[s.name] = f"df_{safe}"
+            else:
+                df_map[s.name] = f"df_Dummy_{safe}"
+        else:
+            df_map[s.name] = f"df_{safe}"
     return StepContext(transformation=trans, step=step, dag=dag, df_variable_map=df_map)
 
 
@@ -120,6 +138,111 @@ class TestAdvancedHandlers(unittest.TestCase):
         self.assertIn(status, ("converted", "partial", "partially_supported", "partial"))
         self.assertTrue(lines)
         self.assertNotIn("unsupported", "\n".join(lines).lower())
+
+    def test_dummy_passthrough(self):
+        lines, status = self.registry.generate_code(
+            "Dummy",
+            _ctx("<step/>", "Dummy", "Rejected Records"),
+        )
+        code = "\n".join(lines)
+        self.assertEqual(status, "converted")
+        self.assertIn("# Dummy: Rejected Records", code)
+        self.assertIn("# Pass-through step - DataFrame unchanged", code)
+        # Hop input is the predecessor DataFrame, output uses Dummy_ prefix.
+        self.assertIn("df_Dummy_Rejected_Records = df_Input", code)
+        self.assertNotIn("df_Rejected_Records = df_Input", code)
+        self.assertNotIn(".filter(", code)
+        self.assertNotIn(".join(", code)
+        self.assertNotIn(".select(", code)
+        self.assertNotIn(".sort(", code)
+
+    def test_dummy_do_nothing_alias(self):
+        lines, status = self.registry.generate_code(
+            "Dummy (do nothing)",
+            _ctx("<step/>", "Dummy (do nothing)", "Dummy"),
+        )
+        code = "\n".join(lines)
+        self.assertEqual(status, "converted")
+        self.assertIn("# Dummy: Dummy", code)
+        # Step name already starts with Dummy → df_Dummy (not df_Dummy_Dummy)
+        self.assertIn("df_Dummy = df_Input", code)
+        self.assertNotIn("df_Input =", code)
+
+    def test_dummy_filter_false_branch_uses_hop_stream(self):
+        """False hop from Filter must not be overwritten with Filter's primary DF."""
+        filter_xml = """
+        <step>
+          <name>Filter rows</name>
+          <type>FilterRows</type>
+          <send_true_to>Sort Rows</send_true_to>
+          <send_false_to>Rejected Records</send_false_to>
+          <compare>
+            <condition>
+              <negated>N</negated>
+              <leftvalue>status</leftvalue>
+              <function>=</function>
+              <value><type>String</type><text>OK</text></value>
+            </condition>
+          </compare>
+        </step>
+        """
+        filter_el = ET.fromstring(textwrap.dedent(filter_xml).strip())
+        source = PentahoStep(
+            name="Source", step_type="RowGenerator", attributes={}, raw_element=None
+        )
+        filt = PentahoStep(
+            name="Filter rows",
+            step_type="FilterRows",
+            attributes={},
+            raw_element=filter_el,
+        )
+        from pentaho_converter.step_xml import parse_filter_rows_config
+
+        filt.parsed_config = parse_filter_rows_config(filter_el)
+        sort = PentahoStep(
+            name="Sort Rows", step_type="SortRows", attributes={}, raw_element=None
+        )
+        dummy = PentahoStep(
+            name="Rejected Records",
+            step_type="Dummy",
+            attributes={},
+            raw_element=ET.fromstring("<step/>"),
+        )
+        trans = PentahoTransformation(name="t", file_path=Path("t.ktr"))
+        trans.steps = [source, filt, sort, dummy]
+        hops = [
+            PentahoHop(from_name="Source", to_name="Filter rows"),
+            PentahoHop(from_name="Filter rows", to_name="Sort Rows"),
+            PentahoHop(from_name="Filter rows", to_name="Rejected Records"),
+        ]
+        dag = StepDAG(trans.steps, hops)
+        df_map = {
+            "Source": "df_Source",
+            "Filter rows": "df_Filter_rows",
+            "Sort Rows": "df_Sort_Rows",
+            "Rejected Records": "df_Dummy_Rejected_Records",
+        }
+
+        filter_ctx = StepContext(
+            transformation=trans, step=filt, dag=dag, df_variable_map=df_map
+        )
+        filter_lines, filter_status = self.registry.generate_code("FilterRows", filter_ctx)
+        filter_code = "\n".join(filter_lines)
+        self.assertIn(filter_status, ("converted", "partial", "partially_supported"))
+        self.assertIn("df_Sort_Rows = df_Source.filter(", filter_code)
+        self.assertIn("df_Rejected_Records = df_Source.filter(~(", filter_code)
+
+        dummy_ctx = StepContext(
+            transformation=trans, step=dummy, dag=dag, df_variable_map=df_map
+        )
+        dummy_lines, dummy_status = self.registry.generate_code("Dummy", dummy_ctx)
+        dummy_code = "\n".join(dummy_lines)
+        self.assertEqual(dummy_status, "converted")
+        self.assertIn("# Pass-through step - DataFrame unchanged", dummy_code)
+        self.assertIn("df_Dummy_Rejected_Records = df_Rejected_Records", dummy_code)
+        # Must NOT overwrite the false-branch stream with Filter's primary output
+        self.assertNotIn("df_Rejected_Records = df_Filter_rows", dummy_code)
+        self.assertNotIn("df_Dummy_Rejected_Records = df_Filter_rows", dummy_code)
 
 
 if __name__ == "__main__":

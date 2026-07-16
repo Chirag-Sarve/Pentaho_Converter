@@ -5,102 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .step_xml import CalculationSpec
+from .step_xml import (
+    CalculationSpec,
+    _CALC_LONG_DESC_BY_TYPE,
+    _normalize_calc_type as _normalize_calc_type_xml,
+)
 
 _UNSUPPORTED_MARKER = "__UNSUPPORTED__:"
-
-# Pentaho CalculatorMetaFunction.calc_desc index → type name (IDs match array index).
-_CALC_DESC_BY_ID: tuple[str, ...] = (
-    "-",
-    "CONSTANT",
-    "COPY_OF_FIELD",
-    "ADD",
-    "SUBTRACT",
-    "MULTIPLY",
-    "DIVIDE",
-    "SQUARE",
-    "SQUARE_ROOT",
-    "PERCENT_1",
-    "PERCENT_2",
-    "PERCENT_3",
-    "COMBINATION_1",
-    "COMBINATION_2",
-    "ROUND_1",
-    "ROUND_2",
-    "ROUND_STD_1",
-    "ROUND_STD_2",
-    "CEIL",
-    "FLOOR",
-    "NVL",
-    "ADD_DAYS",
-    "YEAR_OF_DATE",
-    "MONTH_OF_DATE",
-    "DAY_OF_YEAR",
-    "DAY_OF_MONTH",
-    "DAY_OF_WEEK",
-    "WEEK_OF_YEAR",
-    "WEEK_OF_YEAR_ISO8601",
-    "YEAR_OF_DATE_ISO8601",
-    "BYTE_TO_HEX_ENCODE",
-    "HEX_TO_BYTE_DECODE",
-    "CHAR_TO_HEX_ENCODE",
-    "HEX_TO_CHAR_DECODE",
-    "CRC32",
-    "ADLER32",
-    "MD5",
-    "SHA1",
-    "LEVENSHTEIN_DISTANCE",
-    "METAPHONE",
-    "DOUBLE_METAPHONE",
-    "ABS",
-    "REMOVE_TIME_FROM_DATE",
-    "DATE_DIFF",
-    "ADD3",
-    "INIT_CAP",
-    "UPPER_CASE",
-    "LOWER_CASE",
-    "MASK_XML",
-    "USE_CDATA",
-    "REMOVE_CR",
-    "REMOVE_LF",
-    "REMOVE_CRLF",
-    "REMOVE_TAB",
-    "GET_ONLY_DIGITS",
-    "REMOVE_DIGITS",
-    "STRING_LEN",
-    "LOAD_FILE_CONTENT_BINARY",
-    "ADD_TIME_TO_DATE",
-    "QUARTER_OF_DATE",
-    "SUBSTITUTE_VARIABLE",
-    "UNESCAPE_XML",
-    "ESCAPE_HTML",
-    "UNESCAPE_HTML",
-    "ESCAPE_SQL",
-    "DATE_WORKING_DIFF",
-    "ADD_MONTHS",
-    "CHECK_XML_FILE_WELL_FORMED",
-    "CHECK_XML_WELL_FORMED",
-    "GET_FILE_ENCODING",
-    "DAMERAU_LEVENSHTEIN",
-    "NEEDLEMAN_WUNSH",
-    "JARO",
-    "JARO_WINKLER",
-    "SOUNDEX",
-    "REFINED_SOUNDEX",
-    "ADD_HOURS",
-    "ADD_MINUTES",
-    "DATE_DIFF_MSEC",
-    "DATE_DIFF_SEC",
-    "DATE_DIFF_MN",
-    "DATE_DIFF_HR",
-    "HOUR_OF_DAY",
-    "MINUTE_OF_HOUR",
-    "SECOND_OF_MINUTE",
-    "ROUND_CUSTOM_1",
-    "ROUND_CUSTOM_2",
-    "ADD_SECONDS",
-    "REMAINDER",
-)
 
 _CALC_TYPE_ALIASES: dict[str, str] = {
     "PLUS": "ADD",
@@ -113,6 +24,7 @@ _CALC_TYPE_ALIASES: dict[str, str] = {
     "INITCAP": "INIT_CAP",
     "LENGTH": "STRING_LEN",
     "COPY_FIELD": "COPY_OF_FIELD",
+    "COPY_OF_FIELD": "COPY_OF_FIELD",
     "TRIM": "TRIM",
     "BOOLEAN": "BOOLEAN",
     "GT": "GREATER_THAN",
@@ -128,12 +40,21 @@ _CALC_TYPE_ALIASES: dict[str, str] = {
 
 
 def _normalize_calc_type(raw: str) -> str:
-    text = (raw or "").strip().upper().replace(" ", "_")
-    if text.isdigit():
-        idx = int(text)
-        if 0 <= idx < len(_CALC_DESC_BY_ID):
-            return _CALC_DESC_BY_ID[idx]
-    return _CALC_TYPE_ALIASES.get(text, text)
+    """Normalize to converter-canonical names (COPY_FIELD → COPY_OF_FIELD)."""
+    text = _normalize_calc_type_xml(raw or "")
+    if not text:
+        return ""
+    if text == "COPY_FIELD":
+        return "COPY_OF_FIELD"
+    upper = text.upper().replace(" ", "_")
+    if upper in _CALC_TYPE_ALIASES:
+        return _CALC_TYPE_ALIASES[upper]
+    # Long desc already mapped by parser; also handle converter-local aliases
+    collapsed = " ".join((raw or "").split())
+    if collapsed in _CALC_LONG_DESC_BY_TYPE:
+        mapped = _CALC_LONG_DESC_BY_TYPE[collapsed]
+        return "COPY_OF_FIELD" if mapped == "COPY_FIELD" else mapped
+    return upper
 
 
 def _col(field_name: str) -> str:
@@ -195,17 +116,64 @@ def _date_diff_seconds(start_expr: str, end_expr: str) -> str:
     return f"(unix_timestamp({start_expr}) - unix_timestamp({end_expr}))"
 
 
-def _apply_output_cast(expr: str, calc: CalculationSpec) -> str:
+def _decimal_cast(calc: CalculationSpec, *, default_precision: str = "38", default_scale: str = "10") -> str:
+    """Build a Spark decimal cast, preferring Pentaho length/precision when present."""
+    prec = (calc.value_precision or "").strip()
+    length = (calc.value_length or "").strip()
+    if prec.isdigit() and length.isdigit():
+        return f"decimal({length},{prec})"
+    if prec.isdigit():
+        return f"decimal({default_precision},{prec})"
+    if length.isdigit():
+        return f"decimal({length},{default_scale})"
+    return f"decimal({default_precision},{default_scale})"
+
+
+def _operand_type_is_decimal(type_name: str) -> bool:
+    return (type_name or "").strip().lower() in (
+        "bignumber",
+        "bigdecimal",
+        "decimal",
+    )
+
+
+def _source_operands_are_decimal(
+    calc: CalculationSpec,
+    operand_types: dict[str, str] | None,
+) -> bool:
+    if not operand_types:
+        return False
+    for name in (calc.field_a, calc.field_b, calc.field_c):
+        if name and _operand_type_is_decimal(operand_types.get(name, "")):
+            return True
+    return False
+
+
+def _apply_output_cast(
+    expr: str,
+    calc: CalculationSpec,
+    operand_types: dict[str, str] | None = None,
+) -> str:
+    """Apply Calculator value_type cast; preserve DECIMAL over double when possible."""
     vt = (calc.value_type or "").strip().lower()
+    source_decimal = _source_operands_are_decimal(calc, operand_types)
+
     if not vt:
+        if source_decimal:
+            return f"({expr}).cast('{_decimal_cast(calc)}')"
         return expr
     if vt in ("integer", "int"):
         return f"({expr}).cast('int')"
-    if vt in ("number", "bignumber", "float", "double"):
+    if vt in ("bignumber", "bigdecimal", "decimal"):
+        return f"({expr}).cast('{_decimal_cast(calc)}')"
+    if vt in ("number", "float", "double"):
         prec = (calc.value_precision or "").strip()
         length = (calc.value_length or "").strip()
         if prec.isdigit() and length.isdigit():
             return f"({expr}).cast('decimal({length},{prec})')"
+        # Preserve DECIMAL when operands are decimal/BigNumber rather than widening to double.
+        if source_decimal or (vt == "number" and (prec.isdigit() or length.isdigit())):
+            return f"({expr}).cast('{_decimal_cast(calc)}')"
         return f"({expr}).cast('double')"
     if vt == "string":
         return f"({expr}).cast('string')"
@@ -275,7 +243,7 @@ def calculations_from_metadata(metadata: dict[str, Any]) -> list[CalculationSpec
         specs.append(
             CalculationSpec(
                 field_name=field_name,
-                calc_type=item.get("calc_type", ""),
+                calc_type=_normalize_calc_type(item.get("calc_type", "")),
                 field_a=item.get("field_a", ""),
                 field_b=item.get("field_b", ""),
                 field_c=item.get("field_c", ""),
@@ -293,13 +261,16 @@ def calculations_from_metadata(metadata: dict[str, Any]) -> list[CalculationSpec
     return specs
 
 
-def convert_calculation_result(calc: CalculationSpec) -> CalculationConvertResult:
+def convert_calculation_result(
+    calc: CalculationSpec,
+    operand_types: dict[str, str] | None = None,
+) -> CalculationConvertResult:
     """Convert a single Calculator entry to a PySpark column expression with warnings."""
     incomplete = _calculation_incomplete_warning(calc)
     if incomplete:
         fallback, warning = _unsupported_calc_fallback(calc, calc.calc_type or "UNKNOWN")
         return CalculationConvertResult(
-            expr=_apply_output_cast(fallback, calc),
+            expr=_apply_output_cast(fallback, calc, operand_types),
             warning=incomplete if not warning else f"{incomplete}; {warning}",
             supported=False,
         )
@@ -313,19 +284,36 @@ def convert_calculation_result(calc: CalculationSpec) -> CalculationConvertResul
         unsupported_type = expr[len(_UNSUPPORTED_MARKER):]
         fallback, warning = _unsupported_calc_fallback(calc, unsupported_type)
         return CalculationConvertResult(
-            expr=_apply_output_cast(fallback, calc),
+            expr=_apply_output_cast(fallback, calc, operand_types),
             warning=warning,
             supported=False,
         )
+    warning = ""
+    if calc.conversion_mask or calc.decimal_symbol or calc.grouping_symbol or calc.currency_symbol:
+        warning = (
+            f"preserved.conversion_mask={calc.conversion_mask!r} "
+            f"decimal={calc.decimal_symbol!r} grouping={calc.grouping_symbol!r} "
+            f"currency={calc.currency_symbol!r} — Spark cast does not apply locale masks"
+        )
+    if calc_type == "ADLER32":
+        extra = "ADLER32 approximated with crc32()"
+        warning = f"{warning}; {extra}" if warning else extra
+    if calc_type == "METAPHONE":
+        extra = "METAPHONE approximated with soundex() — not a true Metaphone"
+        warning = f"{warning}; {extra}" if warning else extra
     return CalculationConvertResult(
-        expr=_apply_output_cast(expr, calc),
+        expr=_apply_output_cast(expr, calc, operand_types),
+        warning=warning,
         supported=True,
     )
 
 
-def convert_calculation(calc: CalculationSpec) -> str:
+def convert_calculation(
+    calc: CalculationSpec,
+    operand_types: dict[str, str] | None = None,
+) -> str:
     """Convert a single Calculator entry to a PySpark column expression."""
-    return convert_calculation_result(calc).expr
+    return convert_calculation_result(calc, operand_types).expr
 
 
 def _build_calculation_expr(
@@ -410,7 +398,7 @@ def _build_calculation_expr(
     if calc_type in ("REMOVE_LF",):
         return f"regexp_replace({a}, '\\n', '')"
     if calc_type in ("REMOVE_CRLF",):
-        return f"regexp_replace({a}, '\\r\\n', '')"
+        return f"regexp_replace({a}, '\\r|\\n', '')"
     if calc_type in ("REMOVE_TAB",):
         return f"regexp_replace({a}, '\\t', '')"
     if calc_type in ("GET_ONLY_DIGITS",):
@@ -418,17 +406,48 @@ def _build_calculation_expr(
     if calc_type in ("REMOVE_DIGITS",):
         return f"regexp_replace({a}, '[0-9]', '')"
     if calc_type in ("MASK_XML",):
-        return f"regexp_replace({a}, '[&<>\"]', '')"
+        # Escape XML special characters (Pentaho MASK_XML), not strip them
+        return (
+            f"regexp_replace(regexp_replace(regexp_replace(regexp_replace("
+            f"regexp_replace({a}, '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), "
+            f"\"'\", '&apos;'), '\"', '&quot;')"
+        )
     if calc_type in ("USE_CDATA",):
         return f"concat(lit('<![CDATA['), {a}, lit(']]>'))"
     if calc_type in ("MD5",):
         return f"md5({a})"
     if calc_type in ("SHA1",):
         return f"sha1({a})"
+    if calc_type in ("CRC32",):
+        return f"crc32({a})"
+    if calc_type in ("ADLER32",):
+        # Spark has no Adler32 — approximate with crc32 and rely on warning path via alias
+        return f"crc32({a})"
+    if calc_type in ("LEVENSHTEIN_DISTANCE",):
+        return f"levenshtein({a}.cast('string'), {b}.cast('string'))"
     if calc_type in ("SOUNDEX",):
         return f"soundex({a})"
     if calc_type in ("METAPHONE",):
+        # Approximation — Spark has soundex only; warning added in convert_calculation_result
         return f"soundex({a})"
+    if calc_type in ("UNESCAPE_XML",):
+        return (
+            f"regexp_replace(regexp_replace(regexp_replace(regexp_replace("
+            f"regexp_replace({a}, '&quot;', '\"'), '&apos;', \"'\"), '&gt;', '>'), "
+            f"'&lt;', '<'), '&amp;', '&')"
+        )
+    if calc_type in ("ESCAPE_HTML",):
+        return (
+            f"regexp_replace(regexp_replace(regexp_replace({a}, '&', '&amp;'), "
+            f"'<', '&lt;'), '>', '&gt;')"
+        )
+    if calc_type in ("UNESCAPE_HTML",):
+        return (
+            f"regexp_replace(regexp_replace(regexp_replace({a}, '&gt;', '>'), "
+            f"'&lt;', '<'), '&amp;', '&')"
+        )
+    if calc_type in ("ESCAPE_SQL",):
+        return f"regexp_replace({a}, \"'\", \"''\")"
 
     # Date / time
     if calc_type == "ADD_DAYS":
@@ -508,25 +527,21 @@ def _build_calculation_expr(
     if calc_type in ("HEX_TO_BYTE_DECODE", "HEX_TO_CHAR_DECODE"):
         return f"unhex({a})"
 
+    if calc_type in ("DAMERAU_LEVENSHTEIN",):
+        return f"levenshtein({a}.cast('string'), {b}.cast('string'))"
+    if calc_type in ("JARO", "JARO_WINKLER"):
+        # Emit a Python UDF hook — generated modules define `_jaro_similarity`.
+        return f"_jaro_udf({a}.cast('string'), {b}.cast('string'))"
+
     if calc_type in (
-        "CRC32",
-        "ADLER32",
         "DOUBLE_METAPHONE",
-        "LEVENSHTEIN_DISTANCE",
         "LOAD_FILE_CONTENT_BINARY",
         "SUBSTITUTE_VARIABLE",
-        "UNESCAPE_XML",
-        "ESCAPE_HTML",
-        "UNESCAPE_HTML",
-        "ESCAPE_SQL",
         "DATE_WORKING_DIFF",
         "CHECK_XML_FILE_WELL_FORMED",
         "CHECK_XML_WELL_FORMED",
         "GET_FILE_ENCODING",
-        "DAMERAU_LEVENSHTEIN",
         "NEEDLEMAN_WUNSH",
-        "JARO",
-        "JARO_WINKLER",
         "REFINED_SOUNDEX",
         "-",
         "NONE",
