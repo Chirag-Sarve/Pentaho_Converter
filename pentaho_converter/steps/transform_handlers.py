@@ -338,6 +338,20 @@ class SelectValuesHandler(BaseStepHandler):
             change["_notes"] = meta_notes
             meta_by_src[name] = change
 
+        # Guard against Select Values projecting columns that were already dropped.
+        selected_names = [name for name, _rename in select_fields if name]
+        if selected_names:
+            req_list = ", ".join(repr(c) for c in selected_names)
+            lines.append(f"_sv_required = [{req_list}]")
+            lines.append(
+                f"_sv_missing = [c for c in _sv_required if c not in {in_df}.columns]"
+            )
+            lines.append("if _sv_missing:")
+            lines.append(
+                f'    raise ValueError('
+                f'f"Column {{_sv_missing[0]}} missing before {step.name} step '
+                f'(missing={{_sv_missing}}, available={{list({in_df}.columns)}})")'
+            )
         lines.append(f"{out_var} = {in_df}.select({', '.join(col_exprs)})")
         for name, _rename in select_fields:
             for note in (meta_by_src.get(name) or {}).get("_notes") or []:

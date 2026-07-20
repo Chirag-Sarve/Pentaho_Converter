@@ -37,6 +37,7 @@ class JobRuntime:
         self.results: dict[str, EntryResult] = {}
         self.executed: list[str] = []
         self.allow_reentry = allow_reentry
+        self.config: dict[str, Any] = {}
 
     def outbound(self, entry_name: str) -> list[JobHop]:
         return [h for h in self.hops if h.from_name == entry_name and h.enabled]
@@ -97,10 +98,15 @@ class JobRuntime:
                     )
                 ]
                 if not remaining_fireable:
+                    # No failure/unconditional hop: surface the original exception
+                    # (and its traceback) instead of replacing it with a generic
+                    # JobExecutionError that hides the root cause.
+                    if result.error is not None:
+                        raise result.error
                     raise JobExecutionError(
                         f"Job '{self.name}' failed at entry '{name}' "
                         f"with no failure/unconditional hop"
-                    ) from result.error
+                    )
 
         if terminal is not None:
             return terminal

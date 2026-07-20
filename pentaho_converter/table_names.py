@@ -39,7 +39,7 @@ def qualify_table_name(
     if use_target_vars:
         return f'{{TARGET_CATALOG}}.{{TARGET_SCHEMA}}.{table_name}'
 
-    catalog = (cfg.catalog or "main").strip()
+    catalog = (cfg.catalog or "workspace").strip()
     schema = resolve_target_schema(source_schema, cfg.schema or "default")
     return f"{catalog}.{schema}.{table_name}"
 

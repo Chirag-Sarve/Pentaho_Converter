@@ -45,6 +45,154 @@ def _templates_dir() -> Path:
     return Path(__file__).resolve().parent / "runtime_templates"
 
 
+def _project_root_bootstrap(parents_up: int = 1) -> str:
+    """Emit notebook-safe ``_ROOT`` / ``sys.path`` bootstrap for generated modules.
+
+    Does **not** assume ``Path.cwd()`` is the project root (Job clusters often start
+    in ``/databricks/driver``). Resolve the project root from, in order:
+      1. ``__file__`` when running as a normal ``.py`` script / Repo file
+      2. the current notebook workspace path (Databricks Workspace / Jobs)
+      3. ``SparkFiles.getRootDirectory()`` when the project was distributed to the cluster
+
+    A candidate is accepted only when it contains ``jobs/``, ``engine/``, and
+    ``config.py`` (or a parent of the candidate does). Workspace path variants
+    with and without the ``/Workspace`` prefix are tried.
+
+    ``parents_up`` is 1 for ``Master_ETL.py`` (project root = file's parent) and
+    2 for ``jobs/*.py`` (project root = file's parent's parent).
+    """
+    if parents_up < 1:
+        raise ValueError("parents_up must be >= 1")
+    # Use a plain string + placeholder so braces in type hints are not f-string exprs.
+    return '''def _workspace_path_variants(path: Path) -> list[Path]:
+    """Databricks notebook paths may omit or include the ``/Workspace`` FS prefix."""
+    raw = str(path).replace("\\\\", "/")
+    out: list[Path] = []
+    seen: set[str] = set()
+
+    def _add(p: Path) -> None:
+        key = str(p).replace("\\\\", "/")
+        if key not in seen:
+            seen.add(key)
+            out.append(p)
+
+    _add(Path(raw))
+    if raw.startswith("/Workspace/"):
+        _add(Path(raw[len("/Workspace") :]))
+    elif raw.startswith(("/Users/", "/Repos/", "/Shared/")):
+        _add(Path("/Workspace" + raw))
+    return out
+
+
+def _is_project_root(path: Path) -> bool:
+    try:
+        return (
+            (path / "jobs").is_dir()
+            and (path / "engine").is_dir()
+            and (path / "config.py").is_file()
+        )
+    except Exception:
+        return False
+
+
+def _climb_to_project_root(start: Path) -> Path | None:
+    cur = start
+    for _ in range(8):
+        for variant in _workspace_path_variants(cur):
+            if _is_project_root(variant):
+                return variant
+        if cur.parent == cur:
+            break
+        cur = cur.parent
+    return None
+
+
+def _notebook_path() -> str | None:
+    try:
+        from pyspark.dbutils import DBUtils
+        from pyspark.sql import SparkSession
+
+        _spark = SparkSession.getActiveSession() or SparkSession.builder.getOrCreate()
+        _nb = (
+            DBUtils(_spark)
+            .notebook.entry_point.getDbutils()
+            .notebook()
+            .getContext()
+            .notebookPath()
+            .get()
+        )
+        return str(_nb) if _nb else None
+    except Exception:
+        return None
+
+
+def _spark_files_root() -> Path | None:
+    try:
+        from pyspark.files import SparkFiles
+
+        root = Path(SparkFiles.getRootDirectory())
+        return root if root.exists() else None
+    except Exception:
+        return None
+
+
+def _project_root() -> Path:
+    """Resolve package root for local scripts, Repos, Workspace, and Job clusters."""
+    anchors: list[Path] = []
+
+    # 1) __file__ (local / Repos / Workspace Files run as .py)
+    try:
+        anchors.append(Path(__file__).resolve())
+    except NameError:
+        pass
+
+    # 2) Databricks notebook path (Master_ETL uploaded as a notebook)
+    _nb = _notebook_path()
+    if _nb:
+        anchors.append(Path(str(_nb)))
+
+    # 3) SparkFiles root (job cluster --py-files / distributed artifacts)
+    _sf = _spark_files_root()
+    if _sf is not None:
+        anchors.append(_sf)
+
+    for anchor in anchors:
+        # Walk parents_up from the file/notebook, then climb further if needed
+        root = anchor
+        for _ in range(__PARENTS_UP__):
+            root = root.parent
+        found = _climb_to_project_root(root)
+        if found is not None:
+            return found
+        found = _climb_to_project_root(anchor)
+        if found is not None:
+            return found
+
+    # Last resort: only accept cwd if it (or an ancestor) is a real project root
+    _cwd = Path.cwd()
+    found = _climb_to_project_root(_cwd)
+    if found is not None:
+        return found
+
+    print("ERROR: could not resolve project root containing jobs/, engine/, config.py")
+    print("  cwd           =", _cwd)
+    print("  sys.path      =", list(sys.path))
+    print("  __file__      =", globals().get("__file__", "<undefined>"))
+    print("  notebook path =", _nb)
+    print("  SparkFiles    =", _sf)
+    print("  anchors       =", [str(a) for a in anchors])
+    raise ModuleNotFoundError(
+        "Project root not found. Upload the full package (Master_ETL.py, config.py, "
+        "engine/, jobs/) and run Master_ETL from that folder."
+    )
+
+
+_ROOT = _project_root()
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+'''.replace("__PARENTS_UP__", str(parents_up))
+
+
 def _eval_flag(raw: str | None) -> bool | None:
     if raw is None or raw == "":
         return None
@@ -320,28 +468,34 @@ class DatabricksProjectGenerator:
         return files
 
     def _generate_config(self, project_name: str) -> str:
-        catalog = self.generation_config.catalog or "main"
+        catalog = self.generation_config.catalog or "workspace"
         schema = self.generation_config.schema or "default"
-        data_dir = self.generation_config.data_dir or "/Volumes/main/default/pentaho_data"
+        data_dir = (
+            self.generation_config.data_dir or "/Volumes/workspace/default/rawdata"
+        )
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        return f'''"""Project configuration for Databricks Community Edition / Workspace.
+        return f'''"""Project configuration for Databricks Free Edition / Workspace.
 
 Generated from Pentaho project: {project_name}
 Generated: {ts}
 
 Edit TARGET_CATALOG / TARGET_SCHEMA / PENTAHO_DATA_DIR to match your workspace.
-Paths should use Unity Catalog Volumes, DBFS, or cloud URIs — avoid local disks.
+
+Free Edition: use a Unity Catalog Volume path such as
+``/Volumes/workspace/default/pentaho_data`` (Spark cannot write ETL data under
+``/Workspace/...``). Paid workspaces may use ``main`` or another catalog.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Mapping
 
 # Databricks Unity Catalog targets
 TARGET_CATALOG = {catalog!r}
 TARGET_SCHEMA = {schema!r}
 
-# Upload CSV / source files from the Pentaho ZIP to this folder
+# Spark-readable/writable data root (UC Volume recommended on Free Edition)
 PENTAHO_DATA_DIR = {data_dir!r}
 
 # Optional JDBC / secret-backed connection placeholders (override via widgets / job params)
@@ -366,35 +520,102 @@ def merge_config(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 def resolve_data_path(path: str, cfg: Mapping[str, Any] | None = None) -> str:
-    """Resolve a Pentaho-relative or absolute path against PENTAHO_DATA_DIR."""
+    """Resolve a Pentaho-relative or absolute path against PENTAHO_DATA_DIR.
+
+    Matches Text File Output remapping: local absolute paths such as
+    ``/output/high_value_customers.csv`` become
+    ``{{PENTAHO_DATA_DIR}}/high_value_customers.csv`` so job FILE_EXISTS
+    checks look at the same place Spark wrote.
+    """
     cfg = cfg or {{}}
-    base = str(cfg.get("PENTAHO_DATA_DIR") or PENTAHO_DATA_DIR)
-    text = (path or "").strip()
+    base = str(cfg.get("PENTAHO_DATA_DIR") or PENTAHO_DATA_DIR).rstrip("/")
+    text = (path or "").strip().replace("\\\\", "/")
     if not text:
         return base
     if text.startswith(("dbfs:", "s3://", "abfss://", "wasbs://", "/Volumes/", "file:")):
         return text
-    if text.startswith("/"):
-        if text.startswith("/data/") or text == "/data":
-            return base.rstrip("/") + text[len("/data") :]
-        return text
-    return base.rstrip("/") + "/" + text.lstrip("/")
+    if text.startswith("/data/") or text == "/data":
+        return base + text[len("/data") :]
+    # Local absolute (/output/...) or relative → basename under data dir
+    name = text.rstrip("/").rsplit("/", 1)[-1]
+    return f"{{base}}/{{name}}"
+
+
+def ensure_data_dir(spark: Any = None, cfg: Mapping[str, Any] | None = None) -> str:
+    """Create the UC volume (if needed) and data directory for Free Edition / paid.
+
+    ``/Volumes/<catalog>/<schema>/<volume>/...`` requires the volume object to
+    exist before Spark or dbutils can write. Workspace paths are left alone.
+    """
+    cfg = cfg or {{}}
+    path = str(cfg.get("PENTAHO_DATA_DIR") or PENTAHO_DATA_DIR).rstrip("/") or PENTAHO_DATA_DIR
+    if path.startswith("/Volumes/"):
+        parts = [p for p in path.split("/") if p]
+        # ["Volumes", catalog, schema, volume, ...]
+        if len(parts) >= 4:
+            catalog, schema, volume = parts[1], parts[2], parts[3]
+            try:
+                if spark is not None:
+                    spark.sql(
+                        f"CREATE VOLUME IF NOT EXISTS `{{catalog}}`.`{{schema}}`.`{{volume}}`"
+                    )
+                    logging.info(
+                        "Ensured UC volume %s.%s.%s for data dir %s",
+                        catalog,
+                        schema,
+                        volume,
+                        path,
+                    )
+            except Exception as exc:
+                logging.warning(
+                    "Could not CREATE VOLUME %s.%s.%s (%s). "
+                    "Create it in Catalog Explorer if writes fail.",
+                    catalog,
+                    schema,
+                    volume,
+                    exc,
+                )
+    try:
+        from pathlib import Path as _Path
+
+        _Path(path).mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    try:
+        from pyspark.dbutils import DBUtils
+        from pyspark.sql import SparkSession
+
+        _spark = spark or SparkSession.getActiveSession()
+        if _spark is not None:
+            DBUtils(_spark).fs.mkdirs(path)
+    except Exception as exc:
+        logging.warning("ensure_data_dir mkdirs soft-fail for %s: %s", path, exc)
+    return path
 
 
 def apply_spark_runtime_hints(spark: Any, cfg: Mapping[str, Any] | None = None) -> None:
-    """Apply non-semantic Spark session hints from config."""
+    """Apply optional Spark session hints when the runtime allows them.
+
+    Paid / classic clusters accept most of these keys. Databricks Free Edition
+    and serverless often reject them with CONFIG_NOT_AVAILABLE — skip quietly
+    so the same generated project runs on both.
+    """
     cfg = cfg or {{}}
+
+    def _set(key: str, value: str) -> None:
+        try:
+            spark.conf.set(key, value)
+        except Exception:
+            # Free Edition / serverless / restricted runtimes may forbid the key.
+            pass
+
     shuffle = cfg.get("spark_shuffle_partitions")
     if shuffle:
-        spark.conf.set("spark.sql.shuffle.partitions", str(int(shuffle)))
+        _set("spark.sql.shuffle.partitions", str(int(shuffle)))
     aqe = cfg.get("spark_aqe", True)
-    spark.conf.set("spark.sql.adaptive.enabled", "true" if aqe else "false")
-    try:
-        spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", "true")
-        spark.conf.set("spark.databricks.delta.autoCompact.enabled", "true")
-    except Exception:
-        # Community Edition may reject proprietary conf keys — ignore.
-        pass
+    _set("spark.sql.adaptive.enabled", "true" if aqe else "false")
+    _set("spark.databricks.delta.optimizeWrite.enabled", "true")
+    _set("spark.databricks.delta.autoCompact.enabled", "true")
 '''
 
     def _generate_requirements(self) -> str:
@@ -548,12 +769,11 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping
 
-_ROOT = Path(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+{_project_root_bootstrap(2)}
 
 {_SPARK_IMPORTS}
 import config
+from engine.df_guards import log_step_dataframe, require_dataframe
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -669,13 +889,12 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping
 
-_ROOT = Path(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+{_project_root_bootstrap(2)}
 
 {_SPARK_IMPORTS}
 import config
 from engine.runtime import execute_registered_job
+from engine.df_guards import log_step_dataframe, require_dataframe
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger({stem!r})
@@ -717,7 +936,8 @@ if __name__ == "__main__":
         logs: list[str],
     ) -> str:
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        imports: list[str] = []
+        # (module_path, alias) e.g. ("jobs.jb_prep", "jb_prep_job")
+        job_imports: list[tuple[str, str]] = []
         call_lines: list[str] = []
         primary_name = "empty"
         source = "n/a"
@@ -731,14 +951,14 @@ if __name__ == "__main__":
                 for child in children:
                     cstem = _job_module_stem(child)
                     alias = f"{cstem.lower()}_job"
-                    imports.append(f"from jobs.{cstem} import run as {alias}")
+                    job_imports.append((f"jobs.{cstem}", alias))
                     call_lines.append(f'    logging.info("Running job: {child.name}")')
                     call_lines.append(f"    {alias}(spark, cfg)")
                 call_lines.append("    return {\"primary\": %r, \"orchestrated\": \"child_jobs\"}" % primary_name)
             else:
                 # Primary has TRANS (or other) entries — run the primary job module
                 pstem = _job_module_stem(primary)
-                imports.append(f"from jobs.{pstem} import run as _run_primary")
+                job_imports.append((f"jobs.{pstem}", "_run_primary"))
                 call_lines.append(
                     f'    logging.info("Master_ETL starting primary job: %s (%s)", '
                     f"{primary_name!r}, {source!r})"
@@ -756,7 +976,7 @@ if __name__ == "__main__":
             for t in pool:
                 tstem = _trans_module_stem(t)
                 alias = f"{tstem.lower()}_job"
-                imports.append(f"from jobs.{tstem} import run as {alias}")
+                job_imports.append((f"jobs.{tstem}", alias))
                 call_lines.append(f'    logging.info("Running transformation job: {t.name}")')
                 call_lines.append(f"    _last = {alias}(spark, cfg)")
             call_lines.append("    return _last")
@@ -765,7 +985,66 @@ if __name__ == "__main__":
                 '    raise RuntimeError("No jobs or transformations were generated.")'
             )
 
-        import_block = "\n".join(imports) if imports else "# (no job imports)"
+        required_modules = ["jobs", "engine", "config"] + [mod for mod, _ in job_imports]
+        required_literal = ", ".join(repr(m) for m in required_modules)
+
+        verify_block = (
+            '''def _diagnose_imports() -> None:
+    """Print cwd / sys.path / project root / notebook path when imports fail."""
+    _nb = None
+    try:
+        _nb = _notebook_path()
+    except Exception:
+        _nb = None
+    print("IMPORT DIAGNOSTICS")
+    print("  cwd            =", Path.cwd())
+    print("  sys.path       =", list(sys.path))
+    print("  project root   =", _ROOT)
+    print("  notebook path  =", _nb)
+    print("  __file__       =", globals().get("__file__", "<undefined>"))
+
+
+def _require_modules(names: list[str]) -> None:
+    import importlib.util
+
+    missing = [n for n in names if importlib.util.find_spec(n) is None]
+    if not missing:
+        return
+    _diagnose_imports()
+    raise ModuleNotFoundError(
+        "Not importable (file may exist but project root is not on sys.path): "
+        + ", ".join(missing)
+    )
+
+
+_require_modules([__REQUIRED_MODULES__])
+'''.replace("__REQUIRED_MODULES__", required_literal)
+        )
+
+        safe_import_lines: list[str] = []
+        for mod, alias in job_imports:
+            # from jobs.jb_prep import run as jb_prep_job — with path recovery
+            safe_import_lines.append(
+                f"""try:
+    from {mod} import run as {alias}
+except ModuleNotFoundError:
+    import sys
+    from pathlib import Path
+    try:
+        root = Path(__file__).resolve().parent
+    except NameError:
+        root = _ROOT
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    if str(_ROOT) not in sys.path:
+        sys.path.insert(0, str(_ROOT))
+    from {mod} import run as {alias}"""
+            )
+        if not safe_import_lines:
+            import_block = "# (no job imports)"
+        else:
+            import_block = "\n\n".join(safe_import_lines)
+
         run_body = "\n".join(call_lines)
         job_list = ", ".join(sorted(_job_module_stem(j) for j in jobs.values())) or "(none)"
 
@@ -789,11 +1068,10 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping
 
-# Ensure project root is importable in Databricks Workspace / Jobs
-_ROOT = Path(__file__).resolve().parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+# Ensure project root is importable in Databricks Workspace / Repos / Jobs
+{_project_root_bootstrap(1)}
 
+{verify_block}
 import config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

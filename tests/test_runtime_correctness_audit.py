@@ -31,6 +31,35 @@ def _generate(ktr: Path) -> str:
 
 
 class TestValueMapperRuntime(unittest.TestCase):
+    def test_spoon_fieldname_values_nonmatch_default(self):
+        """Spoon exports use fieldname / values / nonmatch_default (no underscores)."""
+        xml = """
+        <step>
+          <fieldname>Country</fieldname>
+          <target_field>Region</target_field>
+          <nonmatch_default>Other</nonmatch_default>
+          <values>
+            <value><source_value>United States</source_value><target_value>North America</target_value></value>
+            <value><source_value>India</source_value><target_value>APAC</target_value></value>
+          </values>
+        </step>
+        """
+        step_el = ET.fromstring(xml)
+        cfg = parse_value_mapper_config(step_el)
+        self.assertEqual(cfg["field_to_use"], "Country")
+        self.assertEqual(cfg["target_field"], "Region")
+        self.assertEqual(cfg["non_match_default"], "Other")
+        self.assertEqual(len(cfg["mappings"]), 2)
+        self.assertEqual(mappings_from_step_element(step_el)[0]["target"], "North America")
+
+        lines, status = convert_value_mapper_step(cfg, "df_in", "df_out", "Map Country")
+        code = "\n".join(lines)
+        self.assertEqual(status, "converted")
+        self.assertIn('withColumn("Region"', code)
+        self.assertIn("lit('North America')", code)
+        self.assertIn("lit('Other')", code)
+        self.assertIn('col("Country")', code)
+
     def test_parse_all_valuemap_rows_including_empty_source(self):
         xml = """
         <step>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>tr_product_agg</name>
+    <description>TextFileInput → SortRows → GroupBy → TextFileOutput</description>
+  </info>
+  <order>
+    <hop><from>Read Products</from><to>Sort By Category</to><enabled>Y</enabled></hop>
+    <hop><from>Sort By Category</from><to>Agg By Category</to><enabled>Y</enabled></hop>
+    <hop><from>Agg By Category</from><to>Write Summary</to><enabled>Y</enabled></hop>
+  </order>
+
+  <step>
+    <name>Read Products</name>
+    <type>TextFileInput</type>
+    <file>
+      <name>${Internal.Transformation.Filename.Directory}/../data/products.csv</name>
+    </file>
+    <separator>,</separator>
+    <header>Y</header>
+    <encoding>UTF-8</encoding>
+    <fields>
+      <field><name>product_id</name><type>String</type></field>
+      <field><name>category</name><type>String</type></field>
+      <field><name>units</name><type>Integer</type></field>
+      <field><name>unit_cost</name><type>Number</type></field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Sort By Category</name>
+    <type>SortRows</type>
+    <fields>
+      <field>
+        <name>category</name>
+        <ascending>Y</ascending>
+      </field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Agg By Category</name>
+    <type>GroupBy</type>
+    <group>
+      <field><name>category</name></field>
+    </group>
+    <fields>
+      <field>
+        <name>total_units</name>
+        <subject>units</subject>
+        <aggregate>SUM</aggregate>
+      </field>
+      <field>
+        <name>avg_cost</name>
+        <subject>unit_cost</subject>
+        <aggregate>AVERAGE</aggregate>
+      </field>
+      <field>
+        <name>product_count</name>
+        <subject>product_id</subject>
+        <aggregate>COUNT_ALL</aggregate>
+      </field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Write Summary</name>
+    <type>TextFileOutput</type>
+    <file>
+      <name>${Internal.Transformation.Filename.Directory}/../data/products_summary_out</name>
+      <extention>csv</extention>
+    </file>
+    <separator>,</separator>
+    <header>Y</header>
+    <encoding>UTF-8</encoding>
+    <fields>
+      <field><name>category</name><type>String</type></field>
+      <field><name>total_units</name><type>Integer</type></field>
+      <field><name>avg_cost</name><type>Number</type></field>
+      <field><name>product_count</name><type>Integer</type></field>
+    </fields>
+  </step>
+</transformation>

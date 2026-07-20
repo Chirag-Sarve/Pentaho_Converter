@@ -2381,52 +2381,70 @@ def format_spark_join_on(
     return cond, False
 
 
+def _parse_value_mapping_entry(el: ET.Element) -> ValueMapping | None:
+    """Parse one ValueMapper mapping row (valuemap / field / value)."""
+    # Empty <source_value/> is a valid Pentaho mapping (null/blank → target).
+    has_src = (
+        el.find("source_value") is not None
+        or el.find("from") is not None
+        or el.find("source") is not None
+    )
+    src = (
+        _child_text(el, "source_value")
+        or _child_text(el, "from")
+        or _child_text(el, "source")
+    )
+    tgt = (
+        _child_text(el, "target_value")
+        or _child_text(el, "to")
+        or _child_text(el, "target")
+    )
+    if has_src or src or tgt:
+        return ValueMapping(source=src or "", target=tgt or "")
+    return None
+
+
 def parse_value_mappings(step_el: ET.Element) -> tuple[str, str, list[ValueMapping], str]:
-    """Return (source_field, target_field, mappings, default_value)."""
-    source = _child_text(step_el, "field_to_use") or _child_text(step_el, "from_field")
-    target = _child_text(step_el, "target_field") or _child_text(step_el, "to_field") or source
-    default = _child_text(step_el, "non_match_default") or _child_text(step_el, "default")
+    """Return (source_field, target_field, mappings, default_value).
+
+    Supports both classic tags (``field_to_use``, ``non_match_default``,
+    ``fields``/``valuemap``) and Spoon exports that use ``fieldname``,
+    ``nonmatch_default``, and ``values``/``value``.
+    """
+    source = (
+        _child_text(step_el, "field_to_use")
+        or _child_text(step_el, "from_field")
+        or _child_text(step_el, "fieldname")
+        or _child_text(step_el, "field_name")
+    )
+    target = (
+        _child_text(step_el, "target_field")
+        or _child_text(step_el, "to_field")
+        or source
+    )
+    default = (
+        _child_text(step_el, "non_match_default")
+        or _child_text(step_el, "nonmatch_default")
+        or _child_text(step_el, "default")
+    )
     mappings: list[ValueMapping] = []
     for vm_el in step_el.findall("valuemap") + step_el.findall("mapping"):
-        # Empty <source_value/> is a valid Pentaho mapping (null/blank → target).
-        has_src = (
-            vm_el.find("source_value") is not None
-            or vm_el.find("from") is not None
-            or vm_el.find("source") is not None
-        )
-        src = (
-            _child_text(vm_el, "source_value")
-            or _child_text(vm_el, "from")
-            or _child_text(vm_el, "source")
-        )
-        tgt = (
-            _child_text(vm_el, "target_value")
-            or _child_text(vm_el, "to")
-            or _child_text(vm_el, "target")
-        )
-        if has_src or src or tgt:
-            mappings.append(ValueMapping(source=src or "", target=tgt or ""))
+        entry = _parse_value_mapping_entry(vm_el)
+        if entry is not None:
+            mappings.append(entry)
     fields_el = step_el.find("fields")
     if fields_el is not None:
         for field_el in fields_el.findall("field"):
-            # Allow empty source (null/empty → target) like valuemap path
-            has_src = (
-                field_el.find("source_value") is not None
-                or field_el.find("from") is not None
-                or field_el.find("source") is not None
-            )
-            src = (
-                _child_text(field_el, "source_value")
-                or _child_text(field_el, "from")
-                or _child_text(field_el, "source")
-            )
-            tgt = (
-                _child_text(field_el, "target_value")
-                or _child_text(field_el, "to")
-                or _child_text(field_el, "target")
-            )
-            if has_src or src or tgt:
-                mappings.append(ValueMapping(source=src or "", target=tgt or ""))
+            entry = _parse_value_mapping_entry(field_el)
+            if entry is not None:
+                mappings.append(entry)
+    # Spoon / newer exports: <values><value><source_value/>…
+    values_el = step_el.find("values")
+    if values_el is not None:
+        for value_el in values_el.findall("value"):
+            entry = _parse_value_mapping_entry(value_el)
+            if entry is not None:
+                mappings.append(entry)
     return source, target, mappings, default
 
 
@@ -3669,23 +3687,45 @@ def parse_xml_join_config(step_el: ET.Element) -> dict[str, Any]:
 
 
 def parse_formula_config(step_el: ET.Element) -> dict[str, Any]:
-    """Parse Formula step metadata including nested formula_string entries."""
+    """Parse Formula step metadata including nested formula_string entries.
+
+    Supports:
+    - flat ``<field_name>`` + ``<formula>`` on the step
+    - ``<formula><field_name/><formula_string/></formula>``
+    - Spoon exports: ``<formula><field><field_name/>…</field></formula>``
+    """
     formulas: list[dict[str, str]] = []
-    for formula_el in step_el.findall("formula"):
-        field_name = _child_text(formula_el, "field_name")
+
+    def _append_formula_el(el: ET.Element) -> None:
+        field_name = _child_text(el, "field_name")
         formula_string = (
-            _child_text(formula_el, "formula_string")
-            or _child_text(formula_el, "formula")
+            _child_text(el, "formula_string")
+            or _child_text(el, "formula")
         )
-        if field_name or formula_string:
-            formulas.append({
-                "field_name": field_name or "formula_result",
-                "formula": unescape_xml(formula_string),
-                "value_type": _child_text(formula_el, "value_type"),
-                "replace_field": _child_text(formula_el, "replace_field"),
-                "length": _child_text(formula_el, "length"),
-                "precision": _child_text(formula_el, "precision"),
-            })
+        if not (field_name or formula_string):
+            return
+        formulas.append({
+            "field_name": field_name or "formula_result",
+            "formula": unescape_xml(formula_string),
+            "value_type": _child_text(el, "value_type"),
+            "replace_field": _child_text(el, "replace_field"),
+            "length": (
+                _child_text(el, "length")
+                or _child_text(el, "value_length")
+            ),
+            "precision": (
+                _child_text(el, "precision")
+                or _child_text(el, "value_precision")
+            ),
+        })
+
+    for formula_el in step_el.findall("formula"):
+        nested_fields = formula_el.findall("field")
+        if nested_fields:
+            for field_el in nested_fields:
+                _append_formula_el(field_el)
+        else:
+            _append_formula_el(formula_el)
 
     if not formulas:
         flat_formula = unescape_xml(_child_text(step_el, "formula"))
@@ -3696,8 +3736,14 @@ def parse_formula_config(step_el: ET.Element) -> dict[str, Any]:
                 "formula": flat_formula,
                 "value_type": _child_text(step_el, "value_type"),
                 "replace_field": _child_text(step_el, "replace_field"),
-                "length": _child_text(step_el, "length"),
-                "precision": _child_text(step_el, "precision"),
+                "length": (
+                    _child_text(step_el, "length")
+                    or _child_text(step_el, "value_length")
+                ),
+                "precision": (
+                    _child_text(step_el, "precision")
+                    or _child_text(step_el, "value_precision")
+                ),
             })
 
     primary = formulas[0] if formulas else {}
@@ -5357,7 +5403,10 @@ def parse_value_mapper_config(step_el: ET.Element) -> dict[str, Any]:
         "target_field": target,
         "non_match_default": default,
         "mappings": _metadata_value(mappings),
-        "case_sensitive": _bool_from_yn(_child_text(step_el, "case_sensitive")),
+        # Pentaho ValueMapper defaults to case-sensitive matching.
+        "case_sensitive": _bool_from_yn(
+            _child_text(step_el, "case_sensitive"), default=True
+        ),
         "non_empty": _bool_from_yn(_child_text(step_el, "non_empty")),
     }
 

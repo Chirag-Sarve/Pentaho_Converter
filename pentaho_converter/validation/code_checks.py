@@ -65,6 +65,8 @@ def validate_python_fragment(code_lines: list[str]) -> tuple[bool, list[str]]:
             "BooleanType", "ArrayType", "StructType", "StructField", "MapType",
             "BinaryType",
             "DeltaTable",
+            # Provided by generated module headers — do not force in-step imports
+            "logging", "config", "sys", "Path", "Any", "Mapping",
             # Databricks / Spark SQL helpers used by Big Data & integration steps
             "dbutils", "to_json", "struct", "from_json", "schema_of_json",
         }

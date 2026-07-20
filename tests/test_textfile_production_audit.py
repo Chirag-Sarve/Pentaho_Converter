@@ -394,5 +394,87 @@ class TestValidationScoringLevels(unittest.TestCase):
         self.assertEqual(format_display_status("partial"), "PARTIAL")
 
 
+class TestLoggingImportDoesNotShadowStepFunctions(unittest.TestCase):
+    """Regression: nested ``import logging`` caused UnboundLocalError on step entry."""
+
+    def test_strip_helper_and_inlined_tfo_keeps_logging_global(self):
+        import symtable
+        from pentaho_converter.code_generator import (
+            PySparkCodeGenerator,
+            _strip_redundant_logging_import,
+        )
+        from pentaho_converter.generation_config import GenerationConfig
+        from pentaho_converter.models import ConversionStats
+        from pentaho_converter.validation.code_checks import validate_python_fragment
+
+        self.assertEqual(
+            _strip_redundant_logging_import(
+                ["import logging", "logging.info('x')", "  import logging"]
+            ),
+            ["logging.info('x')"],
+        )
+
+        ok, errors = validate_python_fragment(
+            ["out_df = in_df", "logging.info('wrote %s', 'x')"]
+        )
+        self.assertTrue(ok, errors)
+
+        out_xml = """
+        <step>
+          <name>Write Active</name>
+          <type>TextFileOutput</type>
+          <filename>customers_active_out</filename>
+          <extension>csv</extension>
+          <separator>,</separator>
+          <header>Y</header>
+          <encoding>UTF-8</encoding>
+          <fields><field><name>customer_id</name></field></fields>
+        </step>
+        """
+        step_el = ET.fromstring(textwrap.dedent(out_xml).strip())
+        step = PentahoStep(
+            name="Write Active",
+            step_type="TextFileOutput",
+            attributes={},
+            raw_element=step_el,
+        )
+        upstream = PentahoStep(
+            name="Upstream", step_type="RowGenerator", attributes={}, raw_element=None
+        )
+        trans = PentahoTransformation(
+            name="tr_tfo", file_path=Path("tr_tfo.ktr")
+        )
+        trans.steps = [upstream, step]
+        trans.hops = [PentahoHop(from_name="Upstream", to_name="Write Active")]
+
+        gen = PySparkCodeGenerator(generation_config=GenerationConfig.defaults())
+        original = gen.registry.convert_step
+
+        def convert_step(step_type, ctx):
+            result = original(step_type, ctx)
+            if ctx.step.name == "Write Active":
+                # Historical bug: handler emitted import logging inside the step body.
+                result.code_lines = ["import logging", *list(result.code_lines)]
+            return result
+
+        gen.registry.convert_step = convert_step  # type: ignore[method-assign]
+        lines, _, _ = gen.generate_inlined_transformation_block(
+            trans, ConversionStats(), [], run_func_name="run_tr_tfo"
+        )
+        text = "\n".join(lines)
+        self.assertNotRegex(text, r"(?m)^\s+import logging\s*$")
+
+        st = symtable.symtable("import logging\n" + text, "<tfo>", "exec")
+        found = False
+        for child in st.get_children():
+            if "Write_Active" in child.get_name():
+                sym = child.lookup("logging")
+                self.assertTrue(sym.is_global())
+                self.assertFalse(sym.is_local())
+                found = True
+                break
+        self.assertTrue(found)
+
+
 if __name__ == "__main__":
     unittest.main()

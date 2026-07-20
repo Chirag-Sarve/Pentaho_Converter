@@ -76,6 +76,47 @@ class TestProjectGeneration(unittest.TestCase):
         self.assertNotIn("Retail_ETL/transformations/Customer_Load.py", files)
         self.assertNotIn("Retail_ETL/transformations/Sales_Load.py", files)
 
+    def test_config_loaded_once_not_in_every_step(self):
+        """Config vars are initialized in run_*; pure transform steps omit them."""
+        import re
+
+        master_job = self.result.files["Retail_ETL/jobs/Master.py"]
+        # Orchestrator loads parameters once
+        run_match = re.search(
+            r"def run_Customer_Load\(spark, config=None\):(.*?)(?=\ndef |\Z)",
+            master_job,
+            flags=re.S,
+        )
+        self.assertIsNotNone(run_match)
+        self.assertIn("BATCH_DATE = config.get(", run_match.group(1))
+        # No per-step config.get duplication
+        step_bodies = re.findall(
+            r"^def (step_\d+\w+)\(([^)]*)\):\n(.*?)(?=^def |\Z)",
+            master_job,
+            flags=re.M | re.S,
+        )
+        self.assertGreater(len(step_bodies), 0)
+        for name, signature, body in step_bodies:
+            with self.subTest(step=name):
+                self.assertNotIn(
+                    "config.get(",
+                    body,
+                    msg=f"{name} must not re-initialize config",
+                )
+                # Pure transforms in the sample should not take config at all
+                if any(
+                    token in name.lower()
+                    for token in (
+                        "filter",
+                        "sort",
+                        "group_by",
+                        "select_values",
+                    )
+                ):
+                    params = [p.strip() for p in signature.split(",") if p.strip()]
+                    self.assertNotIn("config", params)
+                    self.assertNotIn("BATCH_DATE", params)
+
     def test_job_modules_exclude_pentaho_runtime_metadata(self):
         forbidden = (
             "JOB_PARAMETERS",
@@ -106,6 +147,45 @@ class TestProjectGeneration(unittest.TestCase):
         self.assertIn("from jobs.Master import run", master)
         self.assertIn("def run(", master)
         self.assertIn("import logging", master)
+        self.assertIn("_require_modules", master)
+        self.assertIn("importlib.util.find_spec", master)
+        self.assertIn("except ModuleNotFoundError:", master)
+        self.assertIn("IMPORT DIAGNOSTICS", master)
+
+    def test_generated_modules_are_notebook_safe_for_file(self):
+        """Databricks notebooks lack ``__file__``; bootstrap must catch NameError."""
+        master = self.result.files["Retail_ETL/Master_ETL.py"]
+        self.assertIn("def _project_root()", master)
+        self.assertIn("except NameError:", master)
+        self.assertIn("notebookPath()", master)
+        self.assertIn("SparkFiles.getRootDirectory()", master)
+        self.assertIn("_is_project_root", master)
+        self.assertIn("/Workspace", master)
+        self.assertNotIn(
+            "_ROOT = Path(__file__).resolve().parent\n",
+            master,
+        )
+        # Must not blindly return cwd without validating project markers
+        self.assertNotIn("return Path.cwd()\n", master)
+
+        job = self.result.files["Retail_ETL/jobs/Master.py"]
+        self.assertIn("def _project_root()", job)
+        self.assertIn("except NameError:", job)
+        self.assertNotIn(
+            "_ROOT = Path(__file__).resolve().parent.parent\n",
+            job,
+        )
+
+        # Simulate notebook: evaluating Path(__file__) raises NameError → climb cwd
+        ns: dict = {"Path": Path, "sys": __import__("sys")}
+        bootstrap = master[
+            master.index("def _workspace_path_variants") : master.index("_ROOT = _project_root()")
+        ]
+        # Provide minimal stubs so notebook/Spark lookups fail closed
+        exec(bootstrap + "\n_root_fn = _project_root\n", ns)
+        # Without a real project layout this raises ModuleNotFoundError (no cwd assumption)
+        with self.assertRaises(ModuleNotFoundError):
+            ns["_root_fn"]()
 
     def test_all_python_files_parse(self):
         for path, content in self.result.files.items():
@@ -125,7 +205,51 @@ class TestProjectGeneration(unittest.TestCase):
         self.assertIn("def merge_config", config)
         self.assertIn("def resolve_data_path", config)
         self.assertIn("def apply_spark_runtime_hints", config)
+        self.assertIn("def ensure_data_dir", config)
+        self.assertIn("CREATE VOLUME IF NOT EXISTS", config)
+        # Free Edition / serverless may reject conf keys — must not hard-fail.
+        self.assertIn("def _set(key: str, value: str)", config)
+        self.assertIn("except Exception:", config)
+        self.assertIn('spark.sql.adaptive.enabled', config)
+        # Spark ETL data must use a UC Volume path, not /Workspace
+        self.assertIn("/Volumes/", config)
+        self.assertNotIn("PENTAHO_DATA_DIR = '/Workspace/", config)
 
+    def test_apply_spark_runtime_hints_tolerates_config_not_available(self):
+        """Hints apply on paid; rejected keys are skipped on Free Edition."""
+        config_src = self.result.files["Retail_ETL/config.py"]
+        start = config_src.index("def apply_spark_runtime_hints")
+        helper = config_src[start:]
+        ns: dict = {}
+        stub = (
+            "from typing import Any, Mapping\n"
+            "TARGET_CATALOG = 'main'\n"
+            "TARGET_SCHEMA = 'default'\n"
+            "PENTAHO_DATA_DIR = '/tmp'\n"
+            "DEFAULT_CONFIG = {}\n"
+        )
+        exec(compile(stub + helper, "<config>", "exec"), ns)
+
+        class _Conf:
+            def __init__(self):
+                self.sets = []
+
+            def set(self, key, value):
+                self.sets.append((key, value))
+                if key == "spark.sql.adaptive.enabled":
+                    raise Exception("CONFIG_NOT_AVAILABLE")
+
+        class _Spark:
+            def __init__(self):
+                self.conf = _Conf()
+
+        spark = _Spark()
+        ns["apply_spark_runtime_hints"](spark, {"spark_aqe": True, "spark_shuffle_partitions": 8})
+        keys = [k for k, _ in spark.conf.sets]
+        self.assertIn("spark.sql.adaptive.enabled", keys)
+        self.assertIn("spark.sql.shuffle.partitions", keys)
+        # Did not raise despite CONFIG_NOT_AVAILABLE on AQE
+        self.assertGreaterEqual(len(spark.conf.sets), 2)
 
 if __name__ == "__main__":
     unittest.main()

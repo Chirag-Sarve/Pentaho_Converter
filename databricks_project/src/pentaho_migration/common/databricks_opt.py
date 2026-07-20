@@ -43,14 +43,25 @@ def _jsonable(value: Any) -> Any:
 
 
 def apply_spark_runtime_hints(spark: SparkSession, config: Mapping[str, Any]) -> None:
-    """Apply non-semantic Spark/Databricks session hints from config."""
+    """Apply optional Spark/Databricks session hints when the runtime allows them.
+
+    Works on paid clusters; Free Edition / serverless may reject some keys
+    (CONFIG_NOT_AVAILABLE) — those are skipped so ETL still runs.
+    """
+
+    def _set(key: str, value: str) -> None:
+        try:
+            spark.conf.set(key, value)
+        except Exception:
+            pass
+
     shuffle = config.get("spark_shuffle_partitions")
     if shuffle:
-        spark.conf.set("spark.sql.shuffle.partitions", str(int(shuffle)))
+        _set("spark.sql.shuffle.partitions", str(int(shuffle)))
     aqe = config.get("spark_aqe", True)
-    spark.conf.set("spark.sql.adaptive.enabled", "true" if aqe else "false")
-    spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", "true")
-    spark.conf.set("spark.databricks.delta.autoCompact.enabled", "true")
+    _set("spark.sql.adaptive.enabled", "true" if aqe else "false")
+    _set("spark.databricks.delta.optimizeWrite.enabled", "true")
+    _set("spark.databricks.delta.autoCompact.enabled", "true")
 
 
 def maybe_broadcast(df: DataFrame, *, enabled: bool = True) -> DataFrame:

@@ -345,7 +345,19 @@ class TextFileOutputHandler(BaseStepHandler):
         write_df = out_var
         if field_names:
             cols = ", ".join(repr(c) for c in field_names)
-            lines.append(f"selected_output_df = {out_var}.select({cols})")
+            # Fail loudly when declared output fields are missing — soft-select
+            # previously hid Select Values / rename bugs until a later hop wrap.
+            lines.append(f"_tfo_declared = [{cols}]")
+            lines.append(
+                f"_tfo_missing = [c for c in _tfo_declared if c not in {out_var}.columns]"
+            )
+            lines.append("if _tfo_missing:")
+            lines.append(
+                f'    raise ValueError('
+                f'f"Column {{_tfo_missing[0]}} missing before {step.name} step '
+                f'(missing={{_tfo_missing}}, available={{list({out_var}.columns)}})")'
+            )
+            lines.append(f"selected_output_df = {out_var}.select(*_tfo_declared)")
             write_df = "selected_output_df"
 
         lines.append("(")
@@ -374,6 +386,25 @@ class TextFileOutputHandler(BaseStepHandler):
             )
         lines.append(f"    .csv({path_expr})")
         lines.append(")")
+        # Spark CSV creates a directory; Pentaho FILE_EXISTS expects a file path.
+        # Ensure the path is visible to dbutils/Path checks used by job entries.
+        lines.append(f"_tfo_out_path = {path_expr}")
+        lines.append("logging.info('Text File Output written to %s', _tfo_out_path)")
+        lines.append("try:")
+        lines.append("    from pyspark.dbutils import DBUtils as _TfoDBUtils")
+        lines.append("    from pyspark.sql import SparkSession as _TfoSpark")
+        lines.append("    _tfo_spark = _TfoSpark.getActiveSession()")
+        lines.append("    if _tfo_spark is not None:")
+        lines.append("        _tfo_dbu = _TfoDBUtils(_tfo_spark)")
+        lines.append("        _tfo_listing = _tfo_dbu.fs.ls(_tfo_out_path)")
+        lines.append(
+            "        logging.info('Text File Output listing (%s entries): %s', "
+            "len(_tfo_listing), [x.path for x in _tfo_listing[:5]])"
+        )
+        lines.append("except Exception as _tfo_list_exc:")
+        lines.append(
+            "    logging.warning('Text File Output post-write check: %s', _tfo_list_exc)"
+        )
         if status == "partial":
             logger.warning(
                 "Text File Output '%s' (type=%s) migrated partially — review generated WARNINGs",

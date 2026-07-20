@@ -5,13 +5,12 @@ from __future__ import annotations
 
 import base64
 import logging
-import re
 import traceback
 
 from flask import Flask, jsonify, render_template, request
 
 from databricks import settings as db_settings
-from databricks.databricks_client import import_notebook, test_connection
+from databricks.databricks_client import deploy_project, test_connection
 from pentaho_converter.pipeline import convert_pentaho_project, package_files_as_zip
 
 app = Flask(__name__)
@@ -52,9 +51,16 @@ def convert():
     project_name = filename.rsplit(".", 1)[0]
     catalog = (request.form.get("catalog") or "").strip() or None
     schema = (request.form.get("schema") or "").strip() or None
+    data_dir = (request.form.get("data_dir") or "").strip() or None
 
     try:
-        result = convert_pentaho_project(zip_data, project_name, catalog=catalog, schema=schema)
+        result = convert_pentaho_project(
+            zip_data,
+            project_name,
+            catalog=catalog,
+            schema=schema,
+            data_dir=data_dir,
+        )
     except Exception as exc:
         logger.error("Conversion error: %s\n%s", exc, traceback.format_exc())
         return jsonify({"error": f"Conversion failed: {exc}"}), 500
@@ -160,31 +166,17 @@ def _build_analysis(result) -> dict:
     }
 
 
-def _safe_segment(name: str) -> str:
-    """Sanitize a string for use as a workspace path segment."""
-    cleaned = re.sub(r"[^A-Za-z0-9_.-]", "_", (name or "").strip())
-    return cleaned or "converted_notebook"
-
-
-def _notebook_path(notebook_dir: str, relative_name: str) -> str:
-    """Build a workspace notebook path from folder + file key (may include subdirs)."""
-    base = (notebook_dir or "/Shared/pentaho_converted").rstrip("/")
-    parts = []
-    for segment in relative_name.replace("\\", "/").split("/"):
-        stem = segment.rsplit(".", 1)[0] if segment.endswith(".py") else segment
-        safe = _safe_segment(stem)
-        if safe:
-            parts.append(safe)
-    if not parts:
-        parts = ["converted_notebook"]
-    return f"{base}/{'/'.join(parts)}"
-
-
 def _databricks_credentials(body: dict) -> tuple[str, str, str]:
-    """Read Databricks connection settings from the JSON request body."""
+    """Read Databricks connection settings from the JSON request body.
+
+    Only Workspace URL and PAT are required for Free Edition upload-only deploy.
+    Cluster ID is intentionally ignored.
+    """
     host = (body.get("host") or "").strip()
     token = (body.get("token") or "").strip()
-    notebook_dir = (body.get("notebook_dir") or "/Shared/pentaho_converted").strip().rstrip("/")
+    notebook_dir = (
+        body.get("notebook_dir") or "/Workspace/Pentaho_Migration"
+    ).strip().rstrip("/")
     return host, token, notebook_dir
 
 
@@ -196,7 +188,7 @@ def databricks_config():
 
 @app.route("/api/databricks/test", methods=["POST"])
 def databricks_test():
-    """Test Databricks connection using credentials from the request body."""
+    """Test Workspace URL + PAT only (no Cluster ID)."""
     body = request.get_json(silent=True) or {}
     host, token, _ = _databricks_credentials(body)
     if not host:
@@ -210,7 +202,10 @@ def databricks_test():
 
 @app.route("/api/databricks/push", methods=["POST"])
 def databricks_push():
-    """Import generated PySpark into Databricks as cell-split notebooks."""
+    """Upload-only deploy: create folders and import generated project files.
+
+    Never executes notebooks or submits Spark jobs. Cluster ID is not required.
+    """
     body = request.get_json(silent=True) or {}
     host, token, notebook_dir = _databricks_credentials(body)
 
@@ -225,33 +220,69 @@ def databricks_push():
         files = {k: v for k, v in body["files"].items() if isinstance(v, str) and v.strip()}
     elif body.get("code", "").strip():
         name = body.get("name", "converted_notebook")
+        if not str(name).endswith(".py"):
+            name = f"{name}.py"
         files = {name: body["code"]}
 
     if not files:
-        return jsonify({"ok": False, "message": "No generated code to push."}), 400
+        return jsonify({"ok": False, "message": "No generated code to upload."}), 400
 
-    imported: list[str] = []
-    errors: list[str] = []
-    for relative_name, code in files.items():
-        path = _notebook_path(notebook_dir, relative_name)
-        result = import_notebook(host, token, path, code, overwrite=True)
-        if result.ok:
-            imported.append(path)
-        else:
-            errors.append(f"{relative_name}: {result.message}")
+    project_name = (body.get("project_name") or body.get("name") or "").strip()
+    result = deploy_project(
+        host,
+        token,
+        files,
+        base_dir=notebook_dir,
+        project_name=project_name,
+    )
 
-    if errors and not imported:
-        return jsonify({"ok": False, "message": errors[0], "errors": errors}), 400
+    error_lines = [
+        f"{item.get('file', '?')}: {item.get('error', 'upload failed')}"
+        for item in result.failed
+    ]
 
-    message = f"Imported {len(imported)} notebook(s) to Databricks."
-    if errors:
-        message += f" {len(errors)} file(s) failed."
+    if not result.ok and not result.uploaded:
+        return jsonify({
+            "ok": False,
+            "message": result.message,
+            "location": result.location,
+            "uploaded": result.uploaded,
+            "uploaded_count": result.uploaded_count,
+            "failed_count": result.failed_count,
+            "errors": error_lines,
+            "failed": result.failed,
+        }), 400
+
+    success_title = "Deployment Successful"
+    success_body = (
+        "Your PySpark project has been uploaded successfully.\n\n"
+        f"Location:\n{result.location}/\n\n"
+        "Next Steps\n"
+        "1. Open Databricks Workspace\n"
+        "2. Navigate to the uploaded project\n"
+        "3. Open Master_ETL.py (or the main notebook)\n"
+        "4. Run it manually using Databricks serverless compute."
+    )
+    if result.failed:
+        success_body = (
+            f"Uploaded: {result.uploaded_count} files\n"
+            f"Failed: {result.failed_count} files\n\n"
+            + "\n".join(error_lines)
+            + f"\n\nLocation:\n{result.location}/"
+        )
+
     return jsonify({
         "ok": True,
-        "message": message,
-        "paths": imported,
-        "path": imported[0] if len(imported) == 1 else None,
-        "errors": errors,
+        "message": result.message if result.failed else f"{success_title}\n\n{success_body}",
+        "title": success_title,
+        "location": result.location,
+        "paths": result.uploaded,
+        "path": result.location,
+        "uploaded": result.uploaded,
+        "uploaded_count": result.uploaded_count,
+        "failed_count": result.failed_count,
+        "errors": error_lines,
+        "failed": result.failed,
     })
 
 

@@ -31,33 +31,47 @@ def _normalize_mapping_item(item: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _mapping_entry_from_element(el: ET.Element) -> dict[str, str] | None:
+    """Read one ValueMapper mapping row from field/value/valuemap XML."""
+    # Empty source_value is a valid Pentaho mapping (null/blank → target).
+    has_src = (
+        el.find("source_value") is not None
+        or el.find("from") is not None
+        or el.find("source") is not None
+    )
+    src = (
+        _child_text(el, "source_value")
+        or _child_text(el, "from")
+        or _child_text(el, "source")
+    )
+    tgt = (
+        _child_text(el, "target_value")
+        or _child_text(el, "to")
+        or _child_text(el, "target")
+    )
+    if has_src or src or tgt:
+        return {"source": src or "", "target": tgt or ""}
+    return None
+
+
 def mappings_from_step_element(step_el: ET.Element | None) -> list[dict[str, str]]:
     """Read Value Mapper field entries that use alternate XML tag names."""
     if step_el is None:
         return []
     mappings: list[dict[str, str]] = []
     fields_el = step_el.find("fields")
-    if fields_el is None:
-        return mappings
-    for field_el in fields_el.findall("field"):
-        # Empty source_value is a valid Pentaho mapping (null/blank → target).
-        has_src = (
-            field_el.find("source_value") is not None
-            or field_el.find("from") is not None
-            or field_el.find("source") is not None
-        )
-        src = (
-            _child_text(field_el, "source_value")
-            or _child_text(field_el, "from")
-            or _child_text(field_el, "source")
-        )
-        tgt = (
-            _child_text(field_el, "target_value")
-            or _child_text(field_el, "to")
-            or _child_text(field_el, "target")
-        )
-        if has_src or src or tgt:
-            mappings.append({"source": src or "", "target": tgt or ""})
+    if fields_el is not None:
+        for field_el in fields_el.findall("field"):
+            entry = _mapping_entry_from_element(field_el)
+            if entry is not None:
+                mappings.append(entry)
+    # Spoon / newer exports nest mappings under <values><value>…
+    values_el = step_el.find("values")
+    if values_el is not None:
+        for value_el in values_el.findall("value"):
+            entry = _mapping_entry_from_element(value_el)
+            if entry is not None:
+                mappings.append(entry)
     return mappings
 
 

@@ -64,6 +64,15 @@ def _preprocess_fragment(fragment: str) -> str:
         (r"\bABS\s*\(", "abs("),
         (r"\bISNULL\s*\(", "isnull("),
         (r"\bNVL\s*\(", "coalesce("),
+        # LibreOffice / Pentaho date parts → Spark SQL functions
+        (r"\bYEAR\s*\(", "year("),
+        (r"\bMONTH\s*\(", "month("),
+        (r"\bDAY\s*\(", "dayofmonth("),
+        (r"\bHOUR\s*\(", "hour("),
+        (r"\bMINUTE\s*\(", "minute("),
+        (r"\bSECOND\s*\(", "second("),
+        (r"\bWEEKDAY\s*\(", "dayofweek("),
+        (r"\bWEEKNUM\s*\(", "weekofyear("),
     ]
     for pattern, repl in replacements:
         result = re.sub(pattern, repl, result, flags=re.IGNORECASE)

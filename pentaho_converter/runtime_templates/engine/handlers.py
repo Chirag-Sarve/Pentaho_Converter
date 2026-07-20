@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from .df_guards import log_exception_diagnostics
 from .job_models import EntryResult, JobEntry
 from .job_runtime import EntryHandler, JobExecutionError, JobRuntime
 from .variables import substitute_variables
@@ -18,6 +19,56 @@ TransRunner = Callable[..., Any]
 
 def _resolve(text: str, runtime: JobRuntime) -> str:
     return substitute_variables(text or "", runtime.variables)
+
+
+def _data_path(raw: str, runtime: JobRuntime) -> str:
+    """Map Pentaho local paths to PENTAHO_DATA_DIR (same rules as Text File Output)."""
+    text = _resolve(raw, runtime)
+    try:
+        import config as _cfg  # type: ignore
+
+        cfg = getattr(runtime, "config", None)
+        return _cfg.resolve_data_path(text, cfg if isinstance(cfg, Mapping) else None)
+    except Exception:
+        return text
+
+
+def _fs_exists(path: str) -> bool:
+    """True if path exists as a file, folder, or Spark write directory (_SUCCESS)."""
+    if not path:
+        return False
+    try:
+        p = Path(path)
+        if p.exists():
+            return True
+        if (p / "_SUCCESS").exists():
+            return True
+    except Exception:
+        pass
+    # Databricks DBFS / Volumes via dbutils when local Path cannot see the object
+    try:
+        from pyspark.dbutils import DBUtils
+        from pyspark.sql import SparkSession
+
+        spark = SparkSession.getActiveSession()
+        if spark is not None:
+            DBUtils(spark).fs.ls(path)
+            return True
+    except Exception:
+        pass
+    try:
+        from pyspark.sql import SparkSession
+
+        spark = SparkSession.getActiveSession()
+        if spark is not None:
+            # Spark CSV/Parquet outputs are directories; listing via Hadoop FS
+            jvm_path = spark._jvm.org.apache.hadoop.fs.Path(path)  # type: ignore[attr-defined]
+            fs = jvm_path.getFileSystem(spark._jsc.hadoopConfiguration())  # type: ignore[attr-defined]
+            if fs.exists(jvm_path):
+                return True
+    except Exception:
+        pass
+    return False
 
 
 def _log_level(name: str) -> int:
@@ -99,32 +150,46 @@ def handle_shell(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
 
 
 def handle_create_folder(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
-    folder = _resolve(entry.attributes.get("foldername", ""), runtime)
+    folder = _data_path(entry.attributes.get("foldername", ""), runtime)
     fail_if_exists = str(entry.attributes.get("fail_of_folder_exists", "N")).upper() == "Y"
-    path = Path(folder)
-    if path.exists() and fail_if_exists:
+    if _fs_exists(folder) and fail_if_exists:
         return EntryResult(
             name=entry.name,
             success=False,
             error=FileExistsError(f"Folder already exists: {folder}"),
         )
     try:
+        path = Path(folder)
         path.mkdir(parents=True, exist_ok=True)
     except Exception as exc:  # noqa: BLE001
-        logging.warning(
-            "CREATE_FOLDER soft-fail | name=%s | folder=%s | err=%s",
-            entry.name,
-            folder,
-            exc,
-        )
-        return EntryResult(name=entry.name, success=True, result=str(folder))
+        # Volumes / DBFS mkdir via dbutils when local Path fails (common on serverless)
+        try:
+            from pyspark.dbutils import DBUtils
+            from pyspark.sql import SparkSession
+
+            spark = SparkSession.getActiveSession()
+            if spark is not None:
+                DBUtils(spark).fs.mkdirs(folder)
+            else:
+                raise exc
+        except Exception as exc2:  # noqa: BLE001
+            logging.warning(
+                "CREATE_FOLDER soft-fail | name=%s | folder=%s | err=%s",
+                entry.name,
+                folder,
+                exc2,
+            )
+            return EntryResult(name=entry.name, success=True, result=str(folder))
     logging.info("ENTRY CREATE_FOLDER | name=%s | folder=%s", entry.name, folder)
-    return EntryResult(name=entry.name, success=True, result=str(path))
+    return EntryResult(name=entry.name, success=True, result=str(folder))
 
 
 def handle_file_exists(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
-    filename = _resolve(entry.filename or entry.attributes.get("filename", ""), runtime)
-    exists = Path(filename).exists()
+    filename = _data_path(
+        entry.filename or entry.attributes.get("filename", ""),
+        runtime,
+    )
+    exists = _fs_exists(filename)
     logging.info(
         "ENTRY FILE_EXISTS | name=%s | file=%s | exists=%s",
         entry.name,
@@ -135,13 +200,16 @@ def handle_file_exists(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
 
 
 def handle_wait_for_file(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
-    filename = _resolve(entry.filename or entry.attributes.get("filename", ""), runtime)
+    filename = _data_path(
+        entry.filename or entry.attributes.get("filename", ""),
+        runtime,
+    )
     timeout = int(entry.attributes.get("maximumTimeout", "0") or 0)
     cycle = int(entry.attributes.get("checkCycleTime", "1") or 1)
     success_on_timeout = str(entry.attributes.get("successOnTimeout", "N")).upper() == "Y"
     deadline = time.time() + timeout
     while True:
-        if Path(filename).exists():
+        if _fs_exists(filename):
             return EntryResult(name=entry.name, success=True, result=filename)
         if time.time() >= deadline:
             if success_on_timeout:
@@ -239,7 +307,10 @@ def handle_copy_files(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
 
 
 def handle_delete_file(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
-    filename = _resolve(entry.filename or entry.attributes.get("filename", ""), runtime)
+    filename = _data_path(
+        entry.filename or entry.attributes.get("filename", ""),
+        runtime,
+    )
     logging.info("ENTRY DELETE_FILE | name=%s | file=%s", entry.name, filename)
     try:
         Path(filename).unlink(missing_ok=True)
@@ -281,7 +352,7 @@ def make_trans_handler(
             logging.info("TRANS OK | entry=%s", entry.name)
             return EntryResult(name=entry.name, success=True, result=df)
         except Exception as exc:  # noqa: BLE001
-            logging.exception("TRANS FAIL | entry=%s", entry.name)
+            log_exception_diagnostics(entry_name=entry.name, exc=exc, kind="TRANS")
             return EntryResult(name=entry.name, success=False, error=exc)
 
     return handle_trans
@@ -313,7 +384,11 @@ def make_job_handler(
             logging.info("JOB OK | entry=%s | module=%s", entry.name, py_stem)
             return EntryResult(name=entry.name, success=True, result=result)
         except Exception as exc:  # noqa: BLE001
-            logging.exception("JOB FAIL | entry=%s | module=%s", entry.name, py_stem)
+            log_exception_diagnostics(
+                entry_name=f"{entry.name}→jobs.{py_stem}",
+                exc=exc,
+                kind="JOB",
+            )
             return EntryResult(name=entry.name, success=False, error=exc)
 
     return handle_job

@@ -5,6 +5,12 @@ Generated job graph metadata, hop evaluation, entry handlers, and variable
 substitution live here so every job file stays readable.
 """
 
+from .df_guards import (
+    describe_dataframe,
+    log_exception_diagnostics,
+    log_step_dataframe,
+    require_dataframe,
+)
 from .handlers import build_handlers
 from .job_models import EntryResult, HopKind, JobEntry, JobHop
 from .job_runtime import EntryHandler, JobExecutionError, JobRuntime
@@ -20,7 +26,11 @@ __all__ = [
     "JobHop",
     "JobRuntime",
     "build_handlers",
+    "describe_dataframe",
     "execute_job",
     "execute_registered_job",
+    "log_exception_diagnostics",
+    "log_step_dataframe",
+    "require_dataframe",
     "substitute_variables",
 ]

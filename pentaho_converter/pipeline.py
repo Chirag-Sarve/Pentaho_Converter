@@ -88,7 +88,7 @@ def convert_pentaho_project(
         gen_cfg = GenerationConfig.defaults()
         if catalog or schema or data_dir:
             gen_cfg = GenerationConfig(
-                catalog=(catalog or gen_cfg.catalog or "main").strip(),
+                catalog=(catalog or gen_cfg.catalog or "workspace").strip(),
                 schema=(schema or gen_cfg.schema or "default").strip(),
                 data_dir=(data_dir or gen_cfg.data_dir).strip(),
             )

@@ -431,6 +431,7 @@ class TestUtilityHandlers(unittest.TestCase):
         outcome = self.registry.convert_step("WriteToLog", ctx)
         code = "\n".join(outcome.code_lines)
         self.assertIn("logging.getLogger", code)
+        self.assertNotIn("import logging", code)
         self.assertNotIn("print(", code.split("for _lr")[0])  # no print-based logging
         self.assertIn("ERROR", code)
         self.assertTrue(_syntax_ok(outcome.code_lines), code)

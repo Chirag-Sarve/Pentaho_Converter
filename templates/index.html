@@ -3889,31 +3889,36 @@
         <input type="password" id="set-token" placeholder="dapi..." autocomplete="off">
       </div>
       <div class="settings-field">
-        <label>Catalog</label>
-        <input type="text" id="set-catalog" placeholder="main">
+        <label>Catalog <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
+        <input type="text" id="set-catalog" placeholder="workspace">
       </div>
       <div class="settings-field">
-        <label>Schema</label>
+        <label>Schema <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
         <input type="text" id="set-schema" placeholder="default">
       </div>
       <div class="settings-field">
-        <label>Cluster ID</label>
-        <input type="text" id="set-cluster" placeholder="0123-456789-abcdefgh">
+        <label>Data directory</label>
+        <input type="text" id="set-datadir" placeholder="/Volumes/workspace/default/rawdata">
+        <p style="font-size:0.65rem;color:var(--text-muted);margin:0.25rem 0 0;">Free Edition: use your UC Volume (e.g. <code>rawdata</code>). Do not use /Workspace/... for Spark writes.</p>
       </div>
       <div class="settings-field">
-        <label>Notebook folder</label>
-        <input type="text" id="set-nbdir" placeholder="/Shared/pentaho_converted">
+        <label>Cluster ID (Optional)</label>
+        <input type="text" id="set-cluster" placeholder="Not required for Free Edition upload">
       </div>
       <div class="settings-field">
-        <label>Storage account</label>
+        <label>Destination folder</label>
+        <input type="text" id="set-nbdir" placeholder="/Workspace/Pentaho_Migration">
+      </div>
+      <div class="settings-field">
+        <label>Storage account <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
         <input type="text" id="set-storage" placeholder="(optional)">
       </div>
       <div class="settings-field">
-        <label>Container</label>
+        <label>Container <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
         <input type="text" id="set-container" placeholder="(optional)">
       </div>
       <div class="settings-field">
-        <label>UC path prefix</label>
+        <label>UC path prefix <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
         <input type="text" id="set-prefix" placeholder="(optional)">
       </div>
       <label class="settings-checkbox">
@@ -3929,11 +3934,11 @@
       </div>
       <div class="action-bar" style="flex-direction:column; gap:0.5rem; border-top:none; padding:0;">
         <button class="btn btn-ghost" id="test-conn-btn" style="width:100%;">Test Connection</button>
-        <button class="btn btn-success" id="push-btn" style="width:100%;" disabled>Push to Databricks</button>
+        <button class="btn btn-success" id="push-btn" style="width:100%;" disabled>Deploy</button>
       </div>
       <div class="settings-msg" id="settings-msg"></div>
       <p style="font-size:0.68rem;color:var(--text-muted);line-height:1.4;">
-        Enter your Databricks workspace URL and personal access token above. Credentials are sent only when you test or push — they are not stored on the server.
+        Required: Workspace URL and Personal Access Token. Deploy uploads your project to Databricks — it does not run notebooks or jobs. Credentials are sent only when you test or deploy — they are not stored on the server.
       </p>
     </div>
   </div>
@@ -3948,7 +3953,7 @@
     </div>
     <div class="modal-body">
       <p class="deploy-modal-msg"><strong>Databricks Workspace is not connected.</strong></p>
-      <p class="deploy-modal-msg">Please configure your Databricks connection before deployment.</p>
+      <p class="deploy-modal-msg">Enter your Workspace URL and Personal Access Token, then click Test Connection. Cluster ID is optional and not required for Free Edition upload.</p>
       <div class="deploy-modal-actions">
         <button class="btn btn-ghost" id="deploy-connect-cancel" type="button">Cancel</button>
         <button class="btn btn-primary" id="deploy-connect-settings" type="button">Open Settings</button>
@@ -4081,6 +4086,7 @@
   const setHost      = document.getElementById('set-host');
   const setToken     = document.getElementById('set-token');
   const setCluster   = document.getElementById('set-cluster');
+  const setDataDir   = document.getElementById('set-datadir');
   const setStorage   = document.getElementById('set-storage');
   const setContainer = document.getElementById('set-container');
   const setPrefix    = document.getElementById('set-prefix');
@@ -4090,7 +4096,29 @@
   let lastConvertedName = 'pentaho_converted';
   let databricksConnected = false;
 
-  const DBX_SETTINGS_KEY = 'pentaho_dbx_settings_v1';
+  const DBX_SETTINGS_KEY = 'pentaho_dbx_settings_v3';
+  const DBX_SETTINGS_KEY_LEGACY = 'pentaho_dbx_settings_v2';
+  const DBX_SETTINGS_KEY_LEGACY2 = 'pentaho_dbx_settings_v1';
+  const DEFAULT_CATALOG = 'workspace';
+  const DEFAULT_DATA_DIR = '/Volumes/workspace/default/rawdata';
+
+  function migrateLegacyDatabricksPaths(s) {
+    const next = Object.assign({}, s || {});
+    const cat = (next.catalog || '').trim().toLowerCase();
+    const dataDir = (next.data_dir || '').trim();
+    // Free Edition workspaces usually have catalog "workspace", not "main".
+    if (!cat || cat === 'main') next.catalog = DEFAULT_CATALOG;
+    // Prefer the existing workspace.default.rawdata volume on Free Edition.
+    if (
+      !dataDir ||
+      dataDir.indexOf('/Volumes/main/') === 0 ||
+      dataDir.indexOf('/Workspace/') === 0 ||
+      dataDir === '/Volumes/workspace/default/pentaho_data'
+    ) {
+      next.data_dir = DEFAULT_DATA_DIR;
+    }
+    return next;
+  }
 
   function saveDatabricksSettingsLocal() {
     try {
@@ -4098,6 +4126,7 @@
         host: setHost.value.trim(),
         catalog: setCatalog.value.trim(),
         schema: setSchema.value.trim(),
+        data_dir: setDataDir ? setDataDir.value.trim() : '',
         cluster_id: setCluster ? setCluster.value.trim() : '',
         notebook_dir: setNbDir.value.trim(),
         storage_account: setStorage.value.trim(),
@@ -4112,12 +4141,19 @@
 
   function loadDatabricksSettingsLocal() {
     try {
-      const raw = localStorage.getItem(DBX_SETTINGS_KEY);
+      let raw = localStorage.getItem(DBX_SETTINGS_KEY);
+      let fromLegacy = false;
+      if (!raw) {
+        raw = localStorage.getItem(DBX_SETTINGS_KEY_LEGACY)
+          || localStorage.getItem(DBX_SETTINGS_KEY_LEGACY2);
+        fromLegacy = !!raw;
+      }
       if (!raw) return;
-      const s = JSON.parse(raw);
+      let s = migrateLegacyDatabricksPaths(JSON.parse(raw));
       if (s.host && !setHost.value) setHost.value = s.host;
       if (s.catalog) setCatalog.value = s.catalog;
       if (s.schema) setSchema.value = s.schema;
+      if (setDataDir && s.data_dir) setDataDir.value = s.data_dir;
       if (setCluster && s.cluster_id) setCluster.value = s.cluster_id;
       if (s.notebook_dir) setNbDir.value = s.notebook_dir;
       if (s.storage_account) setStorage.value = s.storage_account;
@@ -4125,6 +4161,13 @@
       if (s.uc_path_prefix) setPrefix.value = s.uc_path_prefix;
       if (typeof s.managed_tables === 'boolean') setManaged.checked = s.managed_tables;
       if (s.target_format) setFormat.value = s.target_format;
+      if (fromLegacy) {
+        try {
+          localStorage.removeItem(DBX_SETTINGS_KEY_LEGACY);
+          localStorage.removeItem(DBX_SETTINGS_KEY_LEGACY2);
+        } catch (e) { /* ignore */ }
+        saveDatabricksSettingsLocal();
+      }
       // Token is not persisted; connection must be re-tested each session.
       databricksConnected = false;
       setConnPill('off', 'NOT CONNECTED');
@@ -4135,9 +4178,6 @@
     const missing = [];
     if (!setHost.value.trim()) missing.push('Databricks Workspace URL');
     if (!setToken.value.trim()) missing.push('Personal Access Token');
-    if (!setCatalog.value.trim()) missing.push('Catalog');
-    if (!setSchema.value.trim()) missing.push('Schema');
-    if (setCluster && !setCluster.value.trim()) missing.push('Cluster ID');
     return missing;
   }
 
@@ -4149,14 +4189,23 @@
     return databricksConnected && isDatabricksConfigured();
   }
 
+  function updateDeployButtonState() {
+    if (!pushBtn) return;
+    // Enabled after a successful Test Connection (upload-only Free Edition flow).
+    // Actual deploy still requires generated files (checked on click).
+    pushBtn.disabled = !databricksConnected;
+  }
+
   function databricksPayload(extra) {
     return Object.assign({
       host: setHost.value.trim(),
       token: setToken.value.trim(),
-      notebook_dir: setNbDir.value.trim() || '/Shared/pentaho_converted',
-      catalog: setCatalog.value.trim(),
+      notebook_dir: setNbDir.value.trim() || '/Workspace/Pentaho_Migration',
+      catalog: setCatalog.value.trim() || DEFAULT_CATALOG,
       schema: setSchema.value.trim(),
+      data_dir: (setDataDir && setDataDir.value.trim()) || DEFAULT_DATA_DIR,
       cluster_id: setCluster ? setCluster.value.trim() : '',
+      project_name: lastConvertedName || getProjectDisplayName() || 'pentaho_converted',
     }, extra || {});
   }
 
@@ -4165,6 +4214,7 @@
     connPill.textContent = text;
     databricksConnected = state === 'ok';
     saveDatabricksSettingsLocal();
+    updateDeployButtonState();
   }
 
   async function loadDatabricksConfig() {
@@ -4172,15 +4222,29 @@
       const resp = await fetch('/api/databricks/config');
       if (!resp.ok) return;
       const c = await resp.json();
-      if (!setCatalog.value) setCatalog.value = c.catalog || 'main';
+      if (!setCatalog.value) setCatalog.value = c.catalog || DEFAULT_CATALOG;
       if (!setSchema.value) setSchema.value = c.schema || 'default';
+      if (setDataDir && !setDataDir.value) setDataDir.value = c.data_dir || DEFAULT_DATA_DIR;
       if (!setStorage.value) setStorage.value = c.storage_account || '';
       if (!setContainer.value) setContainer.value = c.container || '';
       if (!setPrefix.value) setPrefix.value = c.uc_path_prefix || '';
-      if (!setNbDir.value) setNbDir.value = c.notebook_dir || '/Shared/pentaho_converted';
+      if (!setNbDir.value) setNbDir.value = c.notebook_dir || '/Workspace/Pentaho_Migration';
       if (!setManaged.checked) setManaged.checked = !!c.managed_tables;
       if (c.target_format && setFormat.value === 'delta') setFormat.value = c.target_format;
       loadDatabricksSettingsLocal();
+      // After local restore, still purge Free Edition-incompatible Volumes/main paths.
+      if (setCatalog && (!setCatalog.value.trim() || setCatalog.value.trim().toLowerCase() === 'main')) {
+        setCatalog.value = DEFAULT_CATALOG;
+      }
+      if (setDataDir && (
+        !setDataDir.value.trim()
+        || setDataDir.value.indexOf('/Volumes/main/') === 0
+        || setDataDir.value.indexOf('/Workspace/') === 0
+        || setDataDir.value === '/Volumes/workspace/default/pentaho_data'
+      )) {
+        setDataDir.value = DEFAULT_DATA_DIR;
+      }
+      saveDatabricksSettingsLocal();
       if (!databricksConnected) setConnPill('off', 'NOT CONNECTED');
     } catch (e) { /* non-fatal */ }
   }
@@ -4207,16 +4271,10 @@
       });
       const r = await resp.json();
       if (r.ok) {
-        const missing = getMissingDeploySettings();
-        if (missing.length) {
-          setConnPill('off', 'NOT CONNECTED');
-          settingsMsg.className = 'settings-msg err';
-          settingsMsg.textContent = 'Connected, but complete required settings: ' + missing.join(', ');
-        } else {
-          setConnPill('ok', 'CONNECTED');
-          settingsMsg.className = 'settings-msg ok';
-          settingsMsg.textContent = r.message || 'Connected to Databricks.';
-        }
+        setConnPill('ok', 'CONNECTED');
+        settingsMsg.className = 'settings-msg ok';
+        settingsMsg.textContent = r.message || 'Connected successfully.';
+        updateDeployButtonState();
       } else {
         setConnPill('err', 'NOT CONNECTED');
         settingsMsg.className = 'settings-msg err';
@@ -4231,27 +4289,85 @@
     }
   });
 
+  function formatDeploySuccessMessage(r) {
+    const location = (r.location || r.path || '').replace(/\/?$/, '/');
+    if (r.failed_count > 0) {
+      const lines = [
+        'Uploaded: ' + (r.uploaded_count || 0) + ' files',
+        'Failed: ' + (r.failed_count || 0) + ' files',
+      ];
+      const failedItems = r.failed || [];
+      failedItems.forEach(item => {
+        lines.push((item.file || '?') + ': ' + (item.error || 'upload failed'));
+      });
+      if ((r.errors || []).length && !failedItems.length) {
+        r.errors.forEach(err => lines.push(err));
+      }
+      if (location) lines.push('', 'Location:', location);
+      return lines.join('\n');
+    }
+    return [
+      'Deployment Successful',
+      '',
+      'Your PySpark project has been uploaded successfully.',
+      '',
+      'Location:',
+      location || '/Workspace/Pentaho_Migration/',
+      '',
+      'Next Steps',
+      '1. Open Databricks Workspace',
+      '2. Navigate to the uploaded project',
+      '3. Open Master_ETL.py (or the main notebook)',
+      '4. Run it manually using Databricks serverless compute.',
+    ].join('\n');
+  }
+
   pushBtn.addEventListener('click', async () => {
-    if (!Object.keys(generatedFiles).length && !generatedCode) return;
+    if (!Object.keys(generatedFiles).length && !generatedCode) {
+      settingsMsg.className = 'settings-msg err';
+      settingsMsg.textContent = 'Convert a project before deploying.';
+      return;
+    }
     const missing = getMissingDeploySettings();
     if (missing.length) {
       settingsMsg.className = 'settings-msg err';
-      settingsMsg.textContent = 'Required before push: ' + missing.join(', ');
+      settingsMsg.textContent = 'Required before deploy: ' + missing.join(', ');
       return;
     }
     if (!isDatabricksConnected()) {
       settingsMsg.className = 'settings-msg err';
-      settingsMsg.textContent = 'Test connection successfully before pushing.';
+      settingsMsg.textContent = 'Test connection successfully before deploying.';
       return;
     }
+    const fileMap = Object.keys(generatedFiles).length
+      ? generatedFiles
+      : { [(lastConvertedName || 'converted_notebook') + '.py']: generatedCode };
+    const totalFiles = Object.keys(fileMap).length;
     pushBtn.disabled = true;
     settingsMsg.className = 'settings-msg';
-    settingsMsg.textContent = 'Pushing to Databricks (splitting into notebook cells)...';
+    settingsMsg.style.whiteSpace = 'pre-wrap';
+    settingsMsg.textContent = 'Deploying to Databricks...\nCreating destination folders...\nUploading 0/' + totalFiles + ' files.\nUpload only — notebooks will not be executed.';
+    if (typeof setProgress === 'function') {
+      setProgress(15, 'Creating Databricks folders...');
+      setStatus('Deploying to Databricks (upload only)...', 'ready');
+    }
+    // Animate progress while the server creates folders and uploads files.
+    let progressTick = 20;
+    const progressTimer = setInterval(() => {
+      if (progressTick < 85 && typeof setProgress === 'function') {
+        progressTick += 5;
+        const approx = Math.min(totalFiles, Math.floor((progressTick / 85) * totalFiles));
+        setProgress(progressTick, 'Uploading files to Databricks... ' + approx + '/' + totalFiles);
+        settingsMsg.textContent = 'Deploying to Databricks...\nUploading ~' + approx + '/' + totalFiles
+          + ' files.\nUpload only — notebooks will not be executed.';
+      }
+    }, 400);
     try {
       const payload = databricksPayload({
-        files: Object.keys(generatedFiles).length ? generatedFiles : undefined,
+        files: fileMap,
         code: generatedCode,
         name: lastConvertedName,
+        project_name: lastConvertedName || getProjectDisplayName() || 'pentaho_converted',
       });
       const resp = await fetch('/api/databricks/push', {
         method: 'POST',
@@ -4259,31 +4375,47 @@
         body: JSON.stringify(payload),
       });
       const r = await resp.json();
+      clearInterval(progressTimer);
       settingsMsg.className = 'settings-msg ' + (r.ok ? 'ok' : 'err');
       if (r.ok) {
-        const detail = (r.paths && r.paths.length > 1)
-          ? r.paths.join(', ')
-          : (r.path || r.message);
-        settingsMsg.textContent = 'Imported: ' + detail;
-        if (r.errors && r.errors.length) {
-          settingsMsg.textContent += ' Warnings: ' + r.errors.join('; ');
-        }
+        settingsMsg.textContent = formatDeploySuccessMessage(r);
+        settingsMsg.style.whiteSpace = 'pre-wrap';
         setConnPill('ok', 'CONNECTED');
+        if (typeof setProgress === 'function') {
+          setProgress(100, 'Deployment completed — ' + (r.uploaded_count || totalFiles) + ' file(s) uploaded');
+          setStatus('Deployment completed successfully', 'success');
+        }
       } else {
-        settingsMsg.textContent = r.message || 'Push failed.';
+        let msg = r.message || 'Deploy failed.';
+        if (r.failed_count || r.uploaded_count) {
+          msg += '\n\nUploaded: ' + (r.uploaded_count || 0) + ' files\nFailed: '
+            + (r.failed_count || 0) + ' files';
+        }
+        if ((r.errors || []).length) {
+          msg += '\n' + r.errors.join('\n');
+        }
+        settingsMsg.textContent = msg;
+        settingsMsg.style.whiteSpace = 'pre-wrap';
+        if (typeof setProgress === 'function') {
+          setProgress(100, 'Deployment finished with errors');
+          setStatus('Deployment failed', 'error');
+        }
       }
     } catch (e) {
+      clearInterval(progressTimer);
       settingsMsg.className = 'settings-msg err';
       settingsMsg.textContent = 'Network error: ' + e.message;
+      if (typeof setStatus === 'function') setStatus('Deployment failed', 'error');
     } finally {
-      pushBtn.disabled = false;
+      updateDeployButtonState();
     }
   });
 
-  [setHost, setToken, setCatalog, setSchema, setCluster, setNbDir, setStorage, setContainer, setPrefix, setFormat].forEach(el => {
+  [setHost, setToken, setCatalog, setSchema, setDataDir, setCluster, setNbDir, setStorage, setContainer, setPrefix, setFormat].forEach(el => {
     if (!el) return;
     el.addEventListener('change', () => {
-      if (el === setHost || el === setToken || el === setCluster) {
+      // Only host/token affect connection; Cluster ID never clears CONNECTED.
+      if (el === setHost || el === setToken) {
         databricksConnected = false;
         setConnPill('off', 'NOT CONNECTED');
       } else {
@@ -4296,6 +4428,7 @@
 
   loadDatabricksSettingsLocal();
   loadDatabricksConfig();
+  updateDeployButtonState();
 
   let selectedFile = null;
   let selectedFolderFiles = null;
@@ -5309,6 +5442,8 @@
       formData.append('file', zipFile);
       if (setCatalog.value.trim()) formData.append('catalog', setCatalog.value.trim());
       if (setSchema.value.trim()) formData.append('schema', setSchema.value.trim());
+      const dataDir = (setDataDir && setDataDir.value.trim()) || DEFAULT_DATA_DIR;
+      formData.append('data_dir', dataDir);
 
       setProgress(30, 'Extracting and scanning project...');
       setStatus('Processing...', 'ready');
@@ -5342,7 +5477,7 @@
       renderFileList(generatedFiles, activeFile);
       showLogs(data.logs);
       setStatus('Conversion finished — ' + Object.keys(generatedFiles).length + ' file(s) generated', 'success');
-      pushBtn.disabled = false;
+      updateDeployButtonState();
       buildProjectInventory(data);
       showAnalysis(data.analysis, { force: true });
       updateProjectMeta(lastConvertedName, 'Converted', new Date());
@@ -5423,7 +5558,7 @@
     lastSummary = null;
     lastAnalysis = null;
     lineageData = null;
-    if (pushBtn) pushBtn.disabled = true;
+    if (pushBtn) updateDeployButtonState();
     analysisSection.classList.remove('visible');
     document.getElementById('validation-empty').style.display = 'block';
     document.getElementById('header-badge-status').style.display = 'none';

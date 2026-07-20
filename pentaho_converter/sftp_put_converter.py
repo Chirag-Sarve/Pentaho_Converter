@@ -292,7 +292,7 @@ def convert_sftp_put_step(
             "(set an explicit positive timeout in seconds)"
         )
 
-    lines.append("import logging")
+    # Module header already imports logging — nested import would shadow it.
     lines.append("import os")
     lines.append("import re")
     lines.append("import shutil")

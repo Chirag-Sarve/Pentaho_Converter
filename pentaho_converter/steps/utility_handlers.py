@@ -444,7 +444,8 @@ class WriteToLogHandler(BaseStepHandler):
             "log_level", "log_subject", "log_message", "display_header",
             "limit_rows", "limit_rows_number", "fields",
         )))
-        lines.append("import logging")
+        # Module header already imports logging — do not re-import here
+        # (nested import logging → UnboundLocalError on the step's logging.info).
         lines.append(
             f"_log_{_safe_ident(out_var)} = logging.getLogger("
             f"'pentaho.writetolog.{_safe_ident(context.step.name)}')"

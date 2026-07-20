@@ -41,6 +41,48 @@ def _safe_df_name(step_name: str) -> str:
     return cleaned
 
 
+def _transformation_config_keys(transformation: PentahoTransformation) -> list[str]:
+    """Ordered, unique parameter/variable names that are valid Python identifiers."""
+    keys: list[str] = []
+    seen: set[str] = set()
+    for mapping in (transformation.parameters, transformation.variables):
+        if not mapping:
+            continue
+        for key in mapping:
+            if key in seen or not str(key).isidentifier():
+                continue
+            seen.add(key)
+            keys.append(key)
+    return keys
+
+
+def _config_keys_referenced(code_lines: list[str], known_keys: list[str]) -> list[str]:
+    """Return known config keys referenced as identifiers in generated step body code."""
+    if not known_keys or not code_lines:
+        return []
+    text = "\n".join(code_lines)
+    return [key for key in known_keys if re.search(rf"\b{re.escape(key)}\b", text)]
+
+
+def _needs_config_mapping(code_lines: list[str]) -> bool:
+    """True when generated step code reads from the ``config`` mapping directly."""
+    if not code_lines:
+        return False
+    text = "\n".join(code_lines)
+    return bool(re.search(r"\bconfig\.(?:get|setdefault)\b|\bconfig\[", text))
+
+
+def _strip_redundant_logging_import(code_lines: list[str]) -> list[str]:
+    """Drop bare ``import logging`` from step bodies (any indentation).
+
+    Job/transformation modules already import ``logging`` at file scope. A nested
+    ``import logging`` — even inside ``try`` — makes the name local for the whole
+    step function, so the leading ``logging.info(...)`` emitted by the generator
+    raises UnboundLocalError.
+    """
+    return [line for line in code_lines if line.strip() != "import logging"]
+
+
 class PySparkCodeGenerator:
     """Generates PySpark modules from parsed Pentaho transformations."""
 
@@ -318,7 +360,7 @@ class PySparkCodeGenerator:
                 if warn not in outcome.warnings:
                     outcome.warnings.append(warn)
 
-            for cl in code_lines:
+            for cl in _strip_redundant_logging_import(code_lines):
                 lines.append(f"    {cl}")
                 stripped = cl.strip()
                 if out_df and stripped.startswith(f"{out_df} ="):
@@ -400,14 +442,21 @@ class PySparkCodeGenerator:
         step_counter: int,
         source_ktr: str,
     ) -> tuple[list[str], int]:
-        """Emit per-step functions + a run_* orchestrator preserving Pentaho order."""
+        """Emit per-step functions + a run_* orchestrator preserving Pentaho order.
+
+        Configuration is loaded once in ``run_*``. Step functions receive only the
+        config keys (or the ``config`` mapping) that their generated body actually
+        references — pure transforms like Filter/Sort/Join get none.
+        """
         lines: list[str] = []
 
         last_output: str | None = None
         lineage_map: dict[str, set[str]] = {}
-        step_plan: list[tuple[str, str, list[str], str]] = []
-        # (step_fn, out_df, pred_dfs, step_name)
+        # (step_fn, out_df, pred_dfs, used_keys, needs_config, step_name, required_cols)
+        step_plan: list[tuple[str, str, list[str], list[str], bool, str, list[str]]] = []
         counter = step_counter
+        known_keys = _transformation_config_keys(transformation)
+        trans_name = transformation.name
 
         for step_name in order:
             step = next((s for s in transformation.steps if s.name == step_name), None)
@@ -453,32 +502,76 @@ class PySparkCodeGenerator:
                 if warn not in outcome.warnings:
                     outcome.warnings.append(warn)
 
+            used_keys = _config_keys_referenced(code_lines, known_keys)
+            needs_config = _needs_config_mapping(code_lines)
+
+            step_number = counter
             step_fn = f"step_{counter:02d}_{_safe_func_name(step.name)}"
             counter += 1
 
             param_parts = ["spark"]
             param_parts.extend(pred_dfs)
-            param_parts.append("config")
+            param_parts.extend(used_keys)
+            if needs_config:
+                param_parts.append("config")
             signature = ", ".join(param_parts)
 
-            lines.append(f"# Step {counter} : {step.name}")
+            required_cols = sorted(c for c in input_cols if c)
+            req_literal = "[" + ", ".join(repr(c) for c in required_cols) + "]"
+
+            lines.append(f"# Step {step_number} : {step.name}")
             lines.append(f"def {step_fn}({signature}):")
             lines.append(f'    logging.info("Running {step.step_type}: {step.name}")')
-            if transformation.parameters:
-                for key, val in transformation.parameters.items():
-                    lines.append(f"    {key} = config.get({key!r}, {val!r})")
-            if transformation.variables:
-                for key, val in transformation.variables.items():
-                    lines.append(f"    {key} = config.get({key!r}, {val!r})")
-            for cl in code_lines:
+            if pred_dfs:
+                primary_in = pred_dfs[0]
+                lines.append(
+                    f"    {primary_in} = require_dataframe("
+                    f"{primary_in}, transformation={trans_name!r}, "
+                    f"step_name={step.name!r}, func_name={step_fn!r}, "
+                    f"required_columns={req_literal})"
+                )
+                lines.append(
+                    f"    log_step_dataframe("
+                    f"{primary_in}, step_name={step.name!r}, phase='before', "
+                    f"transformation={trans_name!r}, func_name={step_fn!r})"
+                )
+                for extra_in in pred_dfs[1:]:
+                    lines.append(
+                        f"    {extra_in} = require_dataframe("
+                        f"{extra_in}, transformation={trans_name!r}, "
+                        f"step_name={step.name!r}, func_name={step_fn!r}, "
+                        f"required_columns=[])"
+                    )
+            for cl in _strip_redundant_logging_import(code_lines):
                 lines.append(f"    {cl}")
             if out_df:
+                lines.append(
+                    f"    {out_df} = require_dataframe("
+                    f"{out_df}, transformation={trans_name!r}, "
+                    f"step_name={step.name!r}, func_name={step_fn!r}, "
+                    f"required_columns=[])"
+                )
+                lines.append(
+                    f"    log_step_dataframe("
+                    f"{out_df}, step_name={step.name!r}, phase='after', "
+                    f"transformation={trans_name!r}, func_name={step_fn!r})"
+                )
                 lines.append(f"    return {out_df}")
             else:
                 lines.append("    return spark.createDataFrame([], '_placeholder STRING')")
             lines.append("")
 
-            step_plan.append((step_fn, out_df or "None", pred_dfs, step.name))
+            step_plan.append(
+                (
+                    step_fn,
+                    out_df or "None",
+                    pred_dfs,
+                    used_keys,
+                    needs_config,
+                    step.name,
+                    required_cols,
+                )
+            )
             if out_df:
                 last_output = out_df
 
@@ -500,18 +593,35 @@ class PySparkCodeGenerator:
         )
         if transformation.parameters:
             for key, val in transformation.parameters.items():
-                lines.append(f"    config.setdefault({key!r}, {val!r})")
-                lines.append(f"    {key} = config[{key!r}]")
+                lines.append(f"    {key} = config.get({key!r}, {val!r})")
         if transformation.variables:
             for key, val in transformation.variables.items():
-                lines.append(f"    config.setdefault({key!r}, {val!r})")
-                lines.append(f"    {key} = config[{key!r}]")
+                lines.append(f"    {key} = config.get({key!r}, {val!r})")
         lines.append("")
 
-        for step_fn, out_df, pred_dfs, _sname in step_plan:
-            call_args = ["spark"] + pred_dfs + ["config"]
+        for step_fn, out_df, pred_dfs, used_keys, needs_config, step_label, req_cols in step_plan:
+            call_args = ["spark"] + pred_dfs + used_keys
+            if needs_config:
+                call_args.append("config")
+            for idx, pred_df in enumerate(pred_dfs):
+                # Full column checks apply to the primary upstream stream;
+                # secondary join/lookup inputs are only checked for None.
+                cols = req_cols if idx == 0 else []
+                req_literal = "[" + ", ".join(repr(c) for c in cols) + "]"
+                lines.append(
+                    f"    {pred_df} = require_dataframe("
+                    f"{pred_df}, transformation={trans_name!r}, "
+                    f"step_name={step_label!r}, func_name={step_fn!r}, "
+                    f"required_columns={req_literal})"
+                )
             if out_df and out_df != "None":
                 lines.append(f"    {out_df} = {step_fn}({', '.join(call_args)})")
+                lines.append(
+                    f"    {out_df} = require_dataframe("
+                    f"{out_df}, transformation={trans_name!r}, "
+                    f"step_name={step_label!r}, func_name={step_fn!r}, "
+                    f"required_columns=[])"
+                )
             else:
                 lines.append(f"    {step_fn}({', '.join(call_args)})")
 
@@ -670,9 +780,9 @@ class PySparkCodeGenerator:
         return "\n".join(lines)
 
     def _file_header(self, title: str, source: str) -> list[str]:
-        catalog = self.generation_config.catalog or "main"
+        catalog = self.generation_config.catalog or "workspace"
         schema = self.generation_config.schema or "default"
-        data_dir = self.generation_config.data_dir or "/Volumes/main/default/pentaho_data"
+        data_dir = self.generation_config.data_dir or "/Volumes/workspace/default/rawdata"
         return [
             f'"""PySpark transformation: {title}."""',
             "",

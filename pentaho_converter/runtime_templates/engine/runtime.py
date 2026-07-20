@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Mapping
 
-import config as _cfg_mod
-
 from .handlers import build_handlers
 from .job_models import entries_from_defs, hops_from_defs
 from .job_runtime import JobExecutionError, JobRuntime
@@ -57,9 +55,13 @@ def execute_job(
     conversion_todos: list[str] | None = None,
 ) -> dict[str, Any]:
     """Run a Pentaho job graph using engine-owned job metadata."""
+    import config as _cfg_mod
+
     cfg = _cfg_mod.merge_config(dict(config_overrides or {}))
     if spark is not None:
         _cfg_mod.apply_spark_runtime_hints(spark, cfg)
+        if hasattr(_cfg_mod, "ensure_data_dir"):
+            _cfg_mod.ensure_data_dir(spark, cfg)
 
     logging.info("Job start: %s (%s)", job_name, job_source)
     for todo in conversion_todos or []:
@@ -109,6 +111,7 @@ def execute_job(
         handlers=handlers,
         allow_reentry=True,
     )
+    runtime.config = dict(cfg)
     final = runtime.run()
     logging.info(
         "Job end: %s | success=%s | last=%s | steps=%s",
@@ -118,9 +121,11 @@ def execute_job(
         len(runtime.executed),
     )
     if not final.success:
-        raise JobExecutionError(
-            f"Job {job_name} failed at {final.name}"
-        ) from final.error
+        # Prefer the original exception so callers see the real root cause
+        # (e.g. missing column / bad path) rather than a generic wrapper.
+        if final.error is not None:
+            raise final.error
+        raise JobExecutionError(f"Job {job_name} failed at {final.name}")
     return {
         "job": job_name,
         "success": True,

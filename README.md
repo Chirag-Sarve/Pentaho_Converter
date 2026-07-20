@@ -41,11 +41,16 @@ python converter.py path\to\project.zip output_dir\
 
 ## Databricks
 
+Upload-only deploy compatible with **Databricks Free Edition** (no cluster required):
+
 Enter in the web UI (not stored on the server):
 
-- **Workspace URL** — e.g. `https://adb-xxxxx.azuredatabricks.net`
-- **Personal access token** — from Databricks → Settings → Developer → Access tokens
-- **Notebook folder** — e.g. `/Shared/pentaho_converted`
+- **Workspace URL** (required) — e.g. `https://adb-xxxxx.azuredatabricks.net`
+- **Personal access token** (required) — from Databricks → Settings → Developer → Access tokens
+- **Destination folder** (optional) — default `/Workspace/Pentaho_Migration`
+- **Cluster ID** (optional) — never required for deploy; jobs are not submitted
+
+Deploy creates folders and uploads the generated project. Run `Master_ETL.py` manually in the Databricks UI (e.g. serverless).
 
 ## Tests
 

@@ -484,6 +484,29 @@ def resolve_incoming_branch_df(context: StepContext, step_name: str | None = Non
     return None
 
 
+def _collect_condition_fields(node: dict[str, Any] | None) -> list[str]:
+    """Collect stream field names referenced by a FilterRows condition tree."""
+    if not isinstance(node, dict):
+        return []
+    fields: list[str] = []
+    left = (node.get("leftvalue") or "").strip()
+    right = (node.get("rightvalue") or "").strip()
+    if left:
+        fields.append(left)
+    if right and not _looks_like_literal(right):
+        fields.append(right)
+    for child in node.get("conditions") or []:
+        fields.extend(_collect_condition_fields(child))
+    # Preserve order, drop empties/duplicates
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for name in fields:
+        if name and name not in seen:
+            seen.add(name)
+            ordered.append(name)
+    return ordered
+
+
 def _condition_from_metadata(metadata: dict[str, Any]) -> FilterExpressionResult:
     condition = metadata.get("filter_condition") or metadata.get("condition")
     compare_value = (metadata.get("compare_value") or "").strip()
@@ -626,6 +649,21 @@ def convert_filter_rows_step(
 
     filter_expr = condition_result.expr
     true_target, false_target = _connected_branch_targets(metadata, context, step_name)
+
+    condition = metadata.get("filter_condition") or metadata.get("condition")
+    required_fields = _collect_condition_fields(condition if isinstance(condition, dict) else None)
+    if required_fields:
+        req_list = ", ".join(repr(c) for c in required_fields)
+        lines.append(f"_filter_required = [{req_list}]")
+        lines.append(
+            f"_filter_missing = [c for c in _filter_required if c not in {in_df}.columns]"
+        )
+        lines.append("if _filter_missing:")
+        lines.append(
+            f'    raise ValueError('
+            f'f"Column {{_filter_missing[0]}} missing before {step_name} step '
+            f'(missing={{_filter_missing}}, available={{list({in_df}.columns)}})")'
+        )
 
     if true_target and false_target:
         # Use raw df_<TargetStep> names so Dummy (df_Dummy_*) can pass the stream through

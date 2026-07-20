@@ -257,18 +257,20 @@ class SequenceHandler(BaseStepHandler):
             f"* lit({cfg.increment_by})"
         )
         if cfg.max_value is not None and cfg.increment_by:
-            # Pentaho wraps to start after exceeding max
-            # period = number of values in [start, max] stepping by incr
-            period_expr = (
-                f"((lit({cfg.max_value}) - lit({cfg.start_at})) // lit({cfg.increment_by})) + lit(1)"
-            )
+            # Pentaho wraps to start after exceeding max.
+            # Compute period in Python — Column // Column is not supported in PySpark.
+            incr = int(cfg.increment_by) or 1
+            period = ((int(cfg.max_value) - int(cfg.start_at)) // incr) + 1
+            if period < 1:
+                period = 1
             seq_expr = (
                 f"lit({cfg.start_at}) + "
-                f"((row_number().over(_w_seq_{out_var}) - lit(1)) % greatest({period_expr}, lit(1))) "
+                f"((row_number().over(_w_seq_{out_var}) - lit(1)) % lit({period})) "
                 f"* lit({cfg.increment_by})"
             )
             lines.append(
-                f"# preserved.max_value={cfg.max_value} — wrap to start (Pentaho counter)"
+                f"# preserved.max_value={cfg.max_value} period={period} "
+                f"— wrap to start (Pentaho counter)"
             )
         else:
             seq_expr = base

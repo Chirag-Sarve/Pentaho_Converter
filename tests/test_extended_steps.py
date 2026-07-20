@@ -224,6 +224,33 @@ class TestExtendedSteps(unittest.TestCase):
         self.assertIn('col("price")', code)
         self.assertIn('col("qty")', code)
 
+    def test_formula_spoon_nested_fields_and_year_month(self):
+        """Spoon nests formula entries under <formula><field>…</field></formula>."""
+        xml = """
+        <step>
+          <formula>
+            <field>
+              <field_name>TotalSales</field_name>
+              <formula_string>[Quantity]*[UnitPrice]*(1-[Discount])</formula_string>
+              <value_type>Number</value_type>
+            </field>
+            <field>
+              <field_name>OrderYearMonth</field_name>
+              <formula_string>YEAR([OrderDate])*100+MONTH([OrderDate])</formula_string>
+              <value_type>Integer</value_type>
+            </field>
+          </formula>
+        </step>
+        """
+        outcome = self.registry.convert_step("Formula", _ctx(xml, "Formula", "Calc"))
+        code = "\n".join(outcome.code_lines)
+        self.assertEqual(outcome.status, "converted")
+        self.assertIn("withColumn('TotalSales'", code)
+        self.assertIn("withColumn('OrderYearMonth'", code)
+        self.assertIn('year(col("OrderDate"))', code)
+        self.assertIn('month(col("OrderDate"))', code)
+        self.assertNotIn("YEAR(", code)
+
     def test_formula_nested_if_uses_otherwise(self):
         xml = """
         <step>

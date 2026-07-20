@@ -258,6 +258,10 @@ class TestHandlersCalcGroup(unittest.TestCase):
         code = "\n".join(outcome.code_lines)
         self.assertIn("%", code)
         self.assertIn("max_value=3", code)
+        # PySpark Columns do not support // — period must be a Python int / lit(N)
+        self.assertNotIn(") // lit(", code)
+        self.assertNotIn(")) // lit(", code)
+        self.assertIn("% lit(", code)
         self.assertTrue(_syntax_ok(outcome.code_lines))
 
     def test_fields_change_sequence(self):

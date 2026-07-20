@@ -49,13 +49,13 @@ def _get(name: str, default: str = "") -> str:
 def public_config() -> dict:
     """Non-secret default settings for the browser settings panel."""
     return {
-        "catalog": _get("DATABRICKS_CATALOG", "main"),
+        "catalog": _get("DATABRICKS_CATALOG", "workspace"),
         "schema": _get("DATABRICKS_SCHEMA", "default"),
         "storage_account": _get("DATABRICKS_STORAGE_ACCOUNT"),
         "container": _get("DATABRICKS_CONTAINER"),
         "uc_path_prefix": _get("DATABRICKS_UC_PATH_PREFIX"),
         "managed_tables": _get("DATABRICKS_MANAGED_TABLES", "false").lower() == "true",
         "target_format": _get("DATABRICKS_TARGET_FORMAT", "delta"),
-        "notebook_dir": _get("DATABRICKS_NOTEBOOK_DIR", "/Shared/pentaho_converted"),
-        "data_dir": _get("DATABRICKS_DATA_DIR", "/Volumes/main/default/pentaho_data"),
+        "notebook_dir": _get("DATABRICKS_NOTEBOOK_DIR", "/Workspace/Pentaho_Migration"),
+        "data_dir": _get("DATABRICKS_DATA_DIR", "/Volumes/workspace/default/rawdata"),
     }
