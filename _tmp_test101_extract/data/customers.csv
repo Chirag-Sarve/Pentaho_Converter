@@ -1,6 +1,0 @@
-customer_id,customer_name,status,region
-101,Alice,ACTIVE,WEST
-102,Bob,INACTIVE,EAST
-103,Carol,ACTIVE,EAST
-104,Dave,ACTIVE,WEST
-105,Eve,INACTIVE,NORTH

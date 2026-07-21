@@ -9,9 +9,34 @@ __pycache__/
 venv/
 env/
 
-# Generated output
+# Tests, samples, and example projects (not required for conversion)
+tests/
+samples/
+test_project.zip
+*_test*.zip
+
+# Temp / local scratch
+_tmp*/
+_tmp_*
+*.tmp
+
+# Generated conversion output / example Databricks projects
+databricks_project/
+Master_ETL.py
+output/
+output_*/
 output_test/
 output_test2/
+
+# Dev audit / migration scripts (not required to run the converter)
+scripts/
+
+# Generated audit/validation reports from sample runs
+docs/MIGRATION_*.md
+docs/MIGRATION_*.json
+docs/VALIDATION_*.md
+docs/VALIDATION_*.json
+docs/step_coverage_audit.json
 
 # OS / editor
 .DS_Store
