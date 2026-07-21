@@ -18,8 +18,7 @@ Convert Pentaho Data Integration (PDI) projects (`.kjb` / `.ktr`) into a single 
 pentaho_converter/   # Conversion engine
 databricks/          # Databricks workspace API client
 templates/           # Web UI
-tests/               # Unit tests
-samples/             # Example Pentaho project
+docs/                # Supported entries & coverage notes
 app.py               # Flask web application
 converter.py         # CLI entry point
 ```
@@ -53,23 +52,6 @@ Enter in the web UI (not stored on the server):
 - **Cluster ID** (optional) — never required for deploy; jobs are not submitted
 
 Deploy creates folders and uploads the generated project. Run `Master_ETL.py` manually in the Databricks UI (e.g. serverless).
-
-## Tests
-
-```bash
-python -m unittest tests.test_pentaho_steps tests.test_general_job_entries -v
-```
-
-## Push to GitHub
-
-```bash
-git init
-git add .
-git commit -m "Pentaho to PySpark converter"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/pentaho-pyspark-converter.git
-git push -u origin main
-```
 
 ## Deploy as a web service
 

@@ -1,6 +1,0 @@
-order_id,customer_id,product,qty,unit_price,status
-1001,101,Widget,2,10.5,A
-1002,102,Gadget,1,25.0,B
-1003,103,Widget,4,10.5,A
-1004,104,Doohickey,3,8.0,C
-1005,105,Gadget,2,25.0,A
