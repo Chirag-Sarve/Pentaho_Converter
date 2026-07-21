@@ -452,8 +452,12 @@ class PySparkCodeGenerator:
 
         last_output: str | None = None
         lineage_map: dict[str, set[str]] = {}
-        # (step_fn, out_df, pred_dfs, used_keys, needs_config, step_name, required_cols)
-        step_plan: list[tuple[str, str, list[str], list[str], bool, str, list[str]]] = []
+        # Branch streams produced by FilterRows/JavaFilter: target_step -> df var
+        branch_streams: dict[str, str] = {}
+        # (step_fn, out_df, pred_dfs, used_keys, needs_config, step_name, branch_returns)
+        step_plan: list[
+            tuple[str, str, list[str], list[str], bool, str, list[str]]
+        ] = []
         counter = step_counter
         known_keys = _transformation_config_keys(transformation)
         trans_name = transformation.name
@@ -482,7 +486,37 @@ class PySparkCodeGenerator:
             code_lines = remove_generator_comments(list(outcome.code_lines))
 
             preds = dag.predecessors(step_name)
-            pred_dfs = [df_map[p] for p in preds if p in df_map]
+            pred_dfs: list[str] = []
+            for pred in preds:
+                if pred not in df_map:
+                    continue
+                # Prefer Filter/JavaFilter/SwitchCase branch stream when this step
+                # is an explicit true/false (or case) target.
+                if step_name in branch_streams:
+                    pred_step = dag.steps.get(pred)
+                    pst = (
+                        (pred_step.step_type or "").strip().lower().replace(" ", "")
+                        if pred_step is not None
+                        else ""
+                    )
+                    if pst in {"filterrows", "javafilter", "switchcase"}:
+                        pred_dfs.append(branch_streams[step_name])
+                        continue
+                pred_dfs.append(df_map[pred])
+
+            # Also resolve via DAG metadata when branch_streams is not yet filled
+            # (e.g. Constant after Filter in the same pass — streams registered below).
+            if not pred_dfs:
+                pass
+            elif len(pred_dfs) == 1:
+                try:
+                    from .filter_converter import resolve_incoming_branch_df
+
+                    branch = resolve_incoming_branch_df(ctx)
+                    if branch:
+                        pred_dfs = [branch]
+                except Exception:
+                    pass
 
             has_out_assign = any(
                 cl.strip().startswith(f"{out_df} =") for cl in code_lines if out_df
@@ -509,6 +543,33 @@ class PySparkCodeGenerator:
             step_fn = f"step_{counter:02d}_{_safe_func_name(step.name)}"
             counter += 1
 
+            # Detect FilterRows dual-branch outputs so the orchestrator can
+            # unpack them — inlined step functions otherwise discard locals.
+            branch_returns: list[str] = []
+            st_norm = (step.step_type or "").strip().lower().replace(" ", "")
+            if st_norm in {"filterrows", "javafilter"}:
+                try:
+                    from .filter_converter import (
+                        _branch_stream_name,
+                        _connected_branch_targets,
+                    )
+                    from .metadata_propagation import get_converter_metadata
+
+                    meta = get_converter_metadata(ctx)
+                    true_t, false_t = _connected_branch_targets(meta, ctx, step_name)
+                    assigned = "\n".join(code_lines)
+                    for target in (true_t, false_t):
+                        if not target:
+                            continue
+                        bvar = _branch_stream_name(target)
+                        # Only unpack streams the Filter step actually assigned.
+                        if f"{bvar} =" not in assigned and f"{bvar}=" not in assigned:
+                            continue
+                        branch_returns.append(bvar)
+                        branch_streams[target] = bvar
+                except Exception:
+                    branch_returns = []
+
             param_parts = ["spark"]
             param_parts.extend(pred_dfs)
             param_parts.extend(used_keys)
@@ -516,8 +577,9 @@ class PySparkCodeGenerator:
                 param_parts.append("config")
             signature = ", ".join(param_parts)
 
-            required_cols = sorted(c for c in input_cols if c)
-            req_literal = "[" + ", ".join(repr(c) for c in required_cols) + "]"
+            # Predicted lineage assists validation only — never hard-fail the
+            # runner on approximate upstream schemas (joins/lookups/renames).
+            req_literal = "[]"
 
             lines.append(f"# Step {step_number} : {step.name}")
             lines.append(f"def {step_fn}({signature}):")
@@ -556,7 +618,12 @@ class PySparkCodeGenerator:
                     f"{out_df}, step_name={step.name!r}, phase='after', "
                     f"transformation={trans_name!r}, func_name={step_fn!r})"
                 )
-                lines.append(f"    return {out_df}")
+                if branch_returns:
+                    # Keep branch DataFrames alive for true/false target steps.
+                    ret_parts = [out_df] + branch_returns
+                    lines.append(f"    return {', '.join(ret_parts)}")
+                else:
+                    lines.append(f"    return {out_df}")
             else:
                 lines.append("    return spark.createDataFrame([], '_placeholder STRING')")
             lines.append("")
@@ -569,7 +636,7 @@ class PySparkCodeGenerator:
                     used_keys,
                     needs_config,
                     step.name,
-                    required_cols,
+                    branch_returns,
                 )
             )
             if out_df:
@@ -599,23 +666,32 @@ class PySparkCodeGenerator:
                 lines.append(f"    {key} = config.get({key!r}, {val!r})")
         lines.append("")
 
-        for step_fn, out_df, pred_dfs, used_keys, needs_config, step_label, req_cols in step_plan:
+        for (
+            step_fn,
+            out_df,
+            pred_dfs,
+            used_keys,
+            needs_config,
+            step_label,
+            branch_returns,
+        ) in step_plan:
             call_args = ["spark"] + pred_dfs + used_keys
             if needs_config:
                 call_args.append("config")
-            for idx, pred_df in enumerate(pred_dfs):
-                # Full column checks apply to the primary upstream stream;
-                # secondary join/lookup inputs are only checked for None.
-                cols = req_cols if idx == 0 else []
-                req_literal = "[" + ", ".join(repr(c) for c in cols) + "]"
+            for pred_df in pred_dfs:
+                # None-check only — do not enforce predicted lineage schemas.
                 lines.append(
                     f"    {pred_df} = require_dataframe("
                     f"{pred_df}, transformation={trans_name!r}, "
                     f"step_name={step_label!r}, func_name={step_fn!r}, "
-                    f"required_columns={req_literal})"
+                    f"required_columns=[])"
                 )
             if out_df and out_df != "None":
-                lines.append(f"    {out_df} = {step_fn}({', '.join(call_args)})")
+                if branch_returns:
+                    unpack = ", ".join([out_df] + branch_returns)
+                    lines.append(f"    {unpack} = {step_fn}({', '.join(call_args)})")
+                else:
+                    lines.append(f"    {out_df} = {step_fn}({', '.join(call_args)})")
                 lines.append(
                     f"    {out_df} = require_dataframe("
                     f"{out_df}, transformation={trans_name!r}, "

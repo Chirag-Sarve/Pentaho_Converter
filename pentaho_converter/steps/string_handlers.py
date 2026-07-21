@@ -258,6 +258,7 @@ class StringOperationsHandler(BaseStepHandler):
         "stringcut",
         "stringscut",
         "replaceinstring",
+        "replacestring",  # Pentaho KTR type id for Replace in String
         "regexreplace",  # alias of Replace in String with regex semantics
     }
 
@@ -272,6 +273,7 @@ class StringOperationsHandler(BaseStepHandler):
         st = step.step_type.lower().replace(" ", "")
         label = {
             "replaceinstring": "Replace in String",
+            "replacestring": "Replace in String",
             "regexreplace": "Regex Replace",
             "stringcut": "String Cut",
             "stringscut": "String Cut",
@@ -283,6 +285,9 @@ class StringOperationsHandler(BaseStepHandler):
             return lines, "converted"
 
         metadata = get_converter_metadata(context)
+        # Normalize Pentaho type id ReplaceString → replace-in-string semantics
+        if st == "replacestring":
+            st = "replaceinstring"
 
         # Dedicated String Cut path (0-based exclusive end)
         if st in ("stringcut", "stringscut"):

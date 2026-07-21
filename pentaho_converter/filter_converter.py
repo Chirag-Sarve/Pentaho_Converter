@@ -683,5 +683,14 @@ def convert_filter_rows_step(
             lines.append(f"{out_var} = {false_var}")
         return lines, "converted"
 
+    # Single send_true_to (common in PDI when the false path is unused): still emit
+    # df_<TrueTarget> so inlined runners / resolve_incoming_branch_df can wire the hop.
+    if true_target:
+        true_var = _branch_stream_name(true_target)
+        lines.append(f"{true_var} = {in_df}.filter({filter_expr})")
+        if out_var != true_var:
+            lines.append(f"{out_var} = {true_var}")
+        return lines, "converted"
+
     lines.append(f"{out_var} = {in_df}.filter({filter_expr})")
     return lines, "converted"

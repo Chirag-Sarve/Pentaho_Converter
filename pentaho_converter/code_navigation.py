@@ -122,7 +122,7 @@ def _expected_hint(step_type: str, message: str) -> str | None:
         return "df.withColumn(..., concat_ws(...))"
     if step_lower == "addxml":
         return "df.withColumn(..., concat(...))"
-    if step_lower in ("replaceinstring", "stringoperations", "stringcut"):
+    if step_lower in ("replaceinstring", "replacestring", "stringoperations", "stringcut"):
         return "df.withColumn(..., regexp_replace(...))"
     if "placeholder" in lower:
         return "Real PySpark logic instead of placeholder DataFrame"

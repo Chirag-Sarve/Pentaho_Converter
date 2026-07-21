@@ -895,7 +895,7 @@ def parse_step_config(context: StepContext) -> dict[str, Any]:
         from ..step_xml import parse_add_xml_config
         parsed.update(parse_add_xml_config(step_el))
 
-    elif st in ("replaceinstring",):
+    elif st in ("replaceinstring", "replacestring"):
         from ..step_xml import parse_replace_in_string_config
         parsed.update(parse_replace_in_string_config(step_el))
 

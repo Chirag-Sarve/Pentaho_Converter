@@ -1001,31 +1001,22 @@ if __name__ == "__main__":
         source = "n/a"
 
         if primary is not None:
+            # Always execute the primary job module. Nested JOB entries are run by
+            # JobRuntime via child_job_modules — flattening to children-only skips
+            # every TRANS / utility entry that follows a nested job in the primary.
             primary_name = primary.name
             source = primary.file_path.name
-            children = _job_child_order(primary, job_index)
-            if children:
-                # Master orchestrates child jobs in Pentaho hop order
-                for child in children:
-                    cstem = _job_module_stem(child)
-                    alias = f"{cstem.lower()}_job"
-                    job_imports.append((f"jobs.{cstem}", alias))
-                    call_lines.append(f'    logging.info("Running job: {child.name}")')
-                    call_lines.append(f"    {alias}(spark, cfg)")
-                call_lines.append("    return {\"primary\": %r, \"orchestrated\": \"child_jobs\"}" % primary_name)
-            else:
-                # Primary has TRANS (or other) entries — run the primary job module
-                pstem = _job_module_stem(primary)
-                job_imports.append((f"jobs.{pstem}", "_run_primary"))
-                call_lines.append(
-                    f'    logging.info("Master_ETL starting primary job: %s (%s)", '
-                    f"{primary_name!r}, {source!r})"
-                )
-                call_lines.append("    result = _run_primary(spark, cfg)")
-                call_lines.append(
-                    f'    logging.info("Master_ETL completed primary job: %s", {primary_name!r})'
-                )
-                call_lines.append("    return result")
+            pstem = _job_module_stem(primary)
+            job_imports.append((f"jobs.{pstem}", "_run_primary"))
+            call_lines.append(
+                f'    logging.info("Master_ETL starting primary job: %s (%s)", '
+                f"{primary_name!r}, {source!r})"
+            )
+            call_lines.append("    result = _run_primary(spark, cfg)")
+            call_lines.append(
+                f'    logging.info("Master_ETL completed primary job: %s", {primary_name!r})'
+            )
+            call_lines.append("    return result")
         elif ordered_transformations or transformations:
             # No jobs — orchestrate orphan KTR job modules in order
             pool = ordered_transformations or transformations

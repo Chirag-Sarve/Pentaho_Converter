@@ -354,6 +354,7 @@ class StringOperationsValidator(StepValidator):
         "stringcut",
         "stringscut",
         "replaceinstring",
+        "replacestring",
         "regexreplace",
     })
 

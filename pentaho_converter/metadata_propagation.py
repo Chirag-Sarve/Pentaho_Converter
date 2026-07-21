@@ -795,7 +795,7 @@ def _enrich_converter_metadata(
         if meta.get("value_name"):
             trace.append("derived.value_name")
 
-    if st in ("replaceinstring", "stringoperations", "stringcut"):
+    if st in ("replaceinstring", "replacestring", "stringoperations", "stringcut"):
         if meta.get("operations"):
             trace.append("derived.operations")
 
@@ -1002,7 +1002,7 @@ def _collect_referenced_columns(step_type: str, metadata: dict[str, Any]) -> set
             if item.get("name"):
                 refs.add(item["name"])
 
-    elif st in ("replaceinstring", "stringoperations", "stringcut"):
+    elif st in ("replaceinstring", "replacestring", "stringoperations", "stringcut"):
         for op in metadata.get("operations") or metadata.get("fields") or []:
             if isinstance(op, dict):
                 for key in ("in", "in_stream_name", "replace_field_by_string"):
@@ -1303,7 +1303,7 @@ def infer_lineage_from_metadata(
         added.add(value_name)
         type_map[value_name] = "String"
 
-    elif st in ("replaceinstring", "stringoperations", "stringcut"):
+    elif st in ("replaceinstring", "replacestring", "stringoperations", "stringcut"):
         for op in metadata.get("operations") or metadata.get("fields") or []:
             if not isinstance(op, dict):
                 continue

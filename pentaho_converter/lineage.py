@@ -174,7 +174,7 @@ def infer_output_columns(
             cols.add(value_name)
         return cols
 
-    if st in ("replaceinstring", "stringoperations", "stringcut"):
+    if st in ("replaceinstring", "replacestring", "stringoperations", "stringcut"):
         cols.update(columns_written(code))
         return cols
 
@@ -289,7 +289,17 @@ def infer_output_columns(
         "xmljoin", "streamlookup", "databaselookup",
         "dblookup", "dbjoin", "databasejoin", "fuzzymatch",
     ):
-        return cols | columns_written(code)
+        cols = set(input_columns) | columns_written(code)
+        # Honour renames/drops so downstream required schemas stay accurate.
+        for old, new in re.findall(
+            r'withColumnRenamed\(["\']([^"\']+)["\']\s*,\s*["\']([^"\']+)["\']',
+            code,
+        ):
+            cols.discard(old)
+            cols.add(new)
+        for dropped in re.findall(r'\.drop\(["\']([^"\']+)["\']', code):
+            cols.discard(dropped)
+        return cols
 
     if st in ("closuregenerator", "closure"):
         # Output schema is only parent, child, distance (Pentaho getFields).

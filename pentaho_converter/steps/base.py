@@ -130,15 +130,12 @@ class StepRegistry:
         )
 
         if lineage_check.errors:
-            return StepConversionOutcome(
-                code_lines=[],
-                status=STATUS_FAILED,
-                semantic_score=0.0,
-                detail=context.step.name,
-                warnings=lineage_check.warnings,
-                errors=lineage_check.errors,
-                handler_name=context.step.step_type,
-            )
+            # Lineage assists validation only — never abort generation or drop
+            # downstream steps (including Text File Output writes).
+            for err in lineage_check.errors:
+                if err not in lineage_check.warnings:
+                    lineage_check.warnings.append(err)
+            lineage_check.errors = []
 
         if isinstance(converter, (BaseStepConverter, LegacyHandlerBridge)):
             original_parse = converter.parse_xml

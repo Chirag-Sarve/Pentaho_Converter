@@ -453,6 +453,29 @@ class TestFlowHandlers(unittest.TestCase):
         self.assertIn("df_Bad", code)
         self.assertIn(".filter(", code)
 
+    def test_filter_true_only_emits_named_branch_stream(self):
+        """send_true_to without send_false_to must still assign df_<TrueTarget>."""
+        xml = """
+        <step>
+          <send_true_to>Select Fields</send_true_to>
+          <compare>
+            <condition>
+              <leftvalue>status</leftvalue>
+              <function>=</function>
+              <value><type>String</type><text>ACTIVE</text></value>
+            </condition>
+          </compare>
+        </step>
+        """
+        ctx = _ctx(xml, "FilterRows", "Keep", successors=["Select Fields"])
+        lines, status = self.registry.generate_code("FilterRows", ctx)
+        code = "\n".join(lines)
+        self.assertIn(status, ("converted", "partial", "partially_supported"))
+        self.assertIn("df_Select_Fields = ", code)
+        self.assertIn(".filter(", code)
+        # Primary output aliases the true branch
+        self.assertRegex(code, r"df_Keep\s*=\s*df_Select_Fields|Keep.*df_Select_Fields")
+
     def test_block_until_missing_wait_step_warns(self):
         xml = """
         <step>
