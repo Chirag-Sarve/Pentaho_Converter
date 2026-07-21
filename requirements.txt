@@ -1,2 +1,10 @@
 flask>=3.0.0
 gunicorn>=22.0.0
+# Required at runtime on Databricks for DTD_VALIDATOR / XSD_VALIDATOR / XSLT job entries
+lxml>=4.9.0
+# Optional: SNMP_TRAP job entry
+# pysnmp>=4.4.12
+# Required for SFTP / SFTPPUT / FTP_DELETE(protocol=SFTP) job entries
+paramiko>=3.0.0
+# Required for PGP_ENCRYPT_FILES / PGP_DECRYPT_FILES / PGP_VERIFY_FILES (needs gpg binary too)
+python-gnupg>=0.5.0

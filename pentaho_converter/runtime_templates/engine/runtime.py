@@ -38,6 +38,7 @@ def execute_registered_job(
         trans_runners=trans_runners or {},
         child_job_modules=spec.get("child_job_modules") or {},
         conversion_todos=spec.get("conversion_todos") or [],
+        connections=spec.get("connections") or {},
     )
 
 
@@ -53,6 +54,7 @@ def execute_job(
     trans_runners: Mapping[str, TransRunner],
     child_job_modules: Mapping[str, tuple[str, str]] | None = None,
     conversion_todos: list[str] | None = None,
+    connections: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run a Pentaho job graph using engine-owned job metadata."""
     import config as _cfg_mod
@@ -72,6 +74,10 @@ def execute_job(
         if key in cfg and cfg[key] not in (None, ""):
             parameters[key] = str(cfg[key])
 
+    parent_variables = cfg.get("__parent_variables__")
+    root_variables = cfg.get("__root_variables__")
+    parent_scopes = cfg.get("__variable_scopes__")
+
     variables: dict[str, Any] = {
         "Internal.Job.Name": job_name,
         "Internal.Job.Filename.Name": job_source,
@@ -87,10 +93,31 @@ def execute_job(
         **parameters,
     }
     for key, value in cfg.items():
+        if str(key).startswith("__"):
+            continue
         if str(key).startswith("Internal.") or key in parameters:
             variables[key] = value
         elif isinstance(value, (str, int, float, bool)):
             variables[key] = value
+
+    # Nested JOB: inherit parent values, then allow child parameters/config to override
+    if isinstance(parent_variables, dict):
+        merged = dict(parent_variables)
+        merged.update(variables)
+        variables = merged
+
+    if isinstance(root_variables, dict):
+        root_ref = root_variables
+    else:
+        root_ref = variables
+
+    if isinstance(parent_scopes, list) and parent_scopes:
+        # Child current scope first, then parent chain (already current→root)
+        variable_scopes: list[dict[str, Any]] = [variables, *parent_scopes]
+    else:
+        variable_scopes = [variables]
+        if root_ref is not variables and root_ref not in variable_scopes:
+            variable_scopes.append(root_ref)
 
     entries = entries_from_defs(entry_defs)
     entry_types = {(e.entry_type or "").upper() for e in entries if e.entry_type}
@@ -110,8 +137,18 @@ def execute_job(
         variables=variables,
         handlers=handlers,
         allow_reentry=True,
+        parent_variables=parent_variables if isinstance(parent_variables, dict) else None,
+        root_variables=root_ref,
+        variable_scopes=variable_scopes,
     )
     runtime.config = dict(cfg)
+    runtime.spark = spark
+    # Prefer explicit job connections; allow config override map
+    merged_conns = dict(connections or {})
+    cfg_conns = cfg.get("connections") or cfg.get("__connections__")
+    if isinstance(cfg_conns, Mapping):
+        merged_conns.update(dict(cfg_conns))
+    runtime.connections = {str(k): dict(v) for k, v in merged_conns.items()}
     final = runtime.run()
     logging.info(
         "Job end: %s | success=%s | last=%s | steps=%s",

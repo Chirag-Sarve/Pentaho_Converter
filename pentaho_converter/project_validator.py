@@ -94,6 +94,7 @@ def validate_generated_project(
         f"{root}/engine/__init__.py",
         f"{root}/engine/runtime.py",
         f"{root}/engine/handlers.py",
+        f"{root}/engine/mail_ops.py",
         f"{root}/engine/job_runtime.py",
         f"{root}/engine/job_models.py",
         f"{root}/engine/job_specs.py",

@@ -35,7 +35,8 @@ class JobHop:
             if self.evaluation is False:
                 return HopKind.ON_FAILURE
             return HopKind.ON_SUCCESS
-        if from_entry_type.upper() in {"SPECIAL", "START"}:
+        # Start / Dummy (SPECIAL or DUMMY) default to unconditional when XML omits the flag
+        if from_entry_type.upper() in {"SPECIAL", "START", "DUMMY"}:
             return HopKind.UNCONDITIONAL
         if self.evaluation is False:
             return HopKind.ON_FAILURE

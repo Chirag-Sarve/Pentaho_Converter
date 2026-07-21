@@ -37,31 +37,123 @@ def _parse_entry_attributes(entry_el: ET.Element) -> dict[str, Any]:
         if child.tag in skip:
             continue
         if child.tag == "fields":
+            # Generic field rows: Set Variables, Copy/Move Files, Delete Files,
+            # Add Result Filenames, DosToUnix, etc. Preserve every child tag.
             fields = []
             for field_el in child.findall("field"):
-                fields.append(
-                    {
-                        "variable_name": _child_text(field_el, "variable_name"),
-                        "variable_type": _child_text(field_el, "variable_type"),
-                        "variable_string": _child_text(field_el, "variable_string"),
-                    }
-                )
+                field_data: dict[str, Any] = {}
+                for sub in field_el:
+                    if len(list(sub)) == 0:
+                        field_data[sub.tag] = _text(sub)
+                # Set Variables aliases (PDI: variable_value; older: variable_string)
+                if any(
+                    k in field_data
+                    for k in ("variable_name", "variable_value", "variable_string")
+                ):
+                    raw_value = field_data.get("variable_value") or field_data.get(
+                        "variable_string", ""
+                    )
+                    field_data.setdefault("variable_string", raw_value)
+                    field_data.setdefault("variable_value", raw_value)
+                    field_data.setdefault(
+                        "variable_type", field_data.get("variable_type") or "JVM"
+                    )
+                    field_data.setdefault(
+                        "variable_name", field_data.get("variable_name", "")
+                    )
+                fields.append(field_data)
             attrs["fields"] = fields
         elif child.tag == "parameters":
-            # JOB/TRANS pass-through parameters block
+            # JOB/TRANS pass-through parameters, or XSLT <parameter><name/><field/>
             attrs["pass_all_parameters"] = _child_text(child, "pass_all_parameters", "N")
             param_list = []
             for p in child.findall("parameter"):
                 param_list.append(
                     {
                         "name": _child_text(p, "name"),
-                        "value": _child_text(p, "value") or _child_text(p, "default_value"),
+                        "value": _child_text(p, "value")
+                        or _child_text(p, "default_value")
+                        or _child_text(p, "field"),
+                        "field": _child_text(p, "field"),
                     }
                 )
             if param_list:
                 attrs["parameters"] = param_list
+        elif child.tag == "outputproperties":
+            # XSLT job entry — JAXP output properties
+            props = []
+            for op in child.findall("outputproperty"):
+                props.append(
+                    {
+                        "name": _child_text(op, "name"),
+                        "value": _child_text(op, "value"),
+                    }
+                )
+            attrs["outputproperties"] = props
+        elif child.tag == "filetypes":
+            # MAIL job entry — result-file type filter list
+            attrs["filetypes"] = [
+                _text(ft) for ft in child.findall("filetype") if _text(ft)
+            ]
+        elif child.tag == "embeddedimages":
+            # MAIL job entry — HTML embedded images
+            images = []
+            for img in child.findall("embeddedimage"):
+                images.append(
+                    {
+                        "image_name": _child_text(img, "image_name"),
+                        "content_id": _child_text(img, "content_id"),
+                    }
+                )
+            attrs["embeddedimages"] = images
+        elif child.tag == "headers":
+            # HTTP job entry — request headers
+            header_list = []
+            for hdr in child.findall("header"):
+                header_list.append(
+                    {
+                        "header_name": _child_text(hdr, "header_name"),
+                        "header_value": _child_text(hdr, "header_value"),
+                    }
+                )
+            attrs["headers"] = header_list
+        elif child.tag == "connections":
+            # CHECK_DB_CONNECTIONS — list of connection name + wait settings
+            conn_list = []
+            for conn_el in child.findall("connection"):
+                conn_list.append(
+                    {
+                        "name": _child_text(conn_el, "name"),
+                        "waitfor": _child_text(conn_el, "waitfor"),
+                        "waittime": _child_text(conn_el, "waittime"),
+                    }
+                )
+            attrs["connections"] = conn_list
         elif len(list(child)) == 0:
-            attrs[child.tag] = _text(child)
+            # Normalize Set Variables replace flag (PDI: replacevars)
+            if child.tag == "replacevars":
+                attrs["replacevars"] = _text(child)
+                attrs.setdefault("replace", _text(child))
+            elif child.tag in {"argument", "arguments"}:
+                # SHELL may repeat <argument> siblings
+                args = attrs.setdefault("arguments", [])
+                if not isinstance(args, list):
+                    args = [str(args)]
+                    attrs["arguments"] = args
+                text = _text(child)
+                if text:
+                    args.append(text)
+            else:
+                # Repeated scalar tags → list (keep last-write compat via *_list)
+                text = _text(child)
+                if child.tag in attrs and not isinstance(attrs[child.tag], list):
+                    # Preserve first value under the plain key; also build a list
+                    attrs[f"{child.tag}_list"] = [attrs[child.tag], text]
+                elif f"{child.tag}_list" in attrs and isinstance(
+                    attrs[f"{child.tag}_list"], list
+                ):
+                    attrs[f"{child.tag}_list"].append(text)
+                attrs[child.tag] = text
         else:
             # Opaque nested XML — keep serialized children for TODO fidelity
             nested: dict[str, Any] = {}
@@ -94,6 +186,17 @@ def parse_job(path: Path, logs: list[str] | None = None) -> PentahoJob:
             pname = _child_text(p, "name")
             if pname:
                 job.parameters[pname] = _child_text(p, "default_value")
+
+    # Job-level DatabaseMeta connections (shared by TABLE_EXISTS / SQL / …)
+    for conn_el in root.findall("connection"):
+        cname = _child_text(conn_el, "name")
+        if not cname:
+            continue
+        cattrs: dict[str, Any] = {}
+        for child in conn_el:
+            if len(list(child)) == 0:
+                cattrs[child.tag] = _text(child)
+        job.connections[cname] = cattrs
 
     entries_el = root.find("entries")
     if entries_el is not None:

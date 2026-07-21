@@ -61,7 +61,12 @@ class PentahoTransformation:
 
 @dataclass
 class PentahoJobEntry:
-    """A single job entry (node in a .kjb workflow)."""
+    """A single job entry (node in a .kjb workflow).
+
+    General-category types include SPECIAL/START, DUMMY, JOB, SET_VARIABLES,
+    SUCCESS, and TRANS. Additional attributes from the ``<entry>`` XML are
+    preserved in ``attributes`` for runtime handlers.
+    """
 
     name: str
     entry_type: str
@@ -81,6 +86,8 @@ class PentahoJob:
     entries: list[PentahoJobEntry] = field(default_factory=list)
     hops: list[PentahoHop] = field(default_factory=list)
     parameters: dict[str, str] = field(default_factory=dict)
+    # Named DatabaseMeta-style connections from the .kjb (name → attrs)
+    connections: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass

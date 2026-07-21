@@ -27,17 +27,39 @@ class JobRuntime:
         variables: Mapping[str, Any] | None = None,
         handlers: Mapping[str, EntryHandler],
         allow_reentry: bool = True,
+        parent_variables: dict[str, Any] | None = None,
+        root_variables: dict[str, Any] | None = None,
+        variable_scopes: list[dict[str, Any]] | None = None,
     ) -> None:
         self.name = name
         self.entries = {e.name: e for e in entries}
         self.hops = list(hops)
         self.parameters: dict[str, str] = dict(parameters or {})
-        self.variables: dict[str, Any] = dict(variables or {})
+        # Prefer a shared dict reference when the caller already owns one
+        # (nested JOB inheritance / ROOT_JOB + PARENT_JOB scopes).
+        if variables is None:
+            self.variables = {}
+        elif isinstance(variables, dict) and variable_scopes is not None:
+            self.variables = variables
+        else:
+            self.variables = dict(variables)
+        self.parent_variables = parent_variables
+        self.root_variables = root_variables if root_variables is not None else self.variables
+        # scopes[0] = current job, scopes[-1] = root job (PDI parent chain)
+        if variable_scopes is not None:
+            self.variable_scopes = list(variable_scopes)
+        else:
+            self.variable_scopes = [self.variables]
         self.handlers = dict(handlers)
         self.results: dict[str, EntryResult] = {}
         self.executed: list[str] = []
         self.allow_reentry = allow_reentry
         self.config: dict[str, Any] = {}
+        # PDI ResultFile list — paths accumulated by ADD_RESULT_FILENAMES / file ops
+        self.result_filenames: list[dict[str, Any]] = []
+        # Optional Spark session + named DB connections for Conditions entries
+        self.spark: Any = None
+        self.connections: dict[str, dict[str, Any]] = {}
 
     def outbound(self, entry_name: str) -> list[JobHop]:
         return [h for h in self.hops if h.from_name == entry_name and h.enabled]

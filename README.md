@@ -9,6 +9,8 @@ Convert Pentaho Data Integration (PDI) projects (`.kjb` / `.ktr`) into a single 
 - Web UI with conversion analysis and logs
 - Test Databricks connection and push notebooks (split into cells)
 - CLI for batch conversion
+- **Job Entries** supported across General, Mail, File Management, Conditions, Scripting, Bulk Loading, XML, Utility, Repository, File Transfer, and File Encryption categories
+  (see [docs/SUPPORTED_JOB_ENTRIES.md](docs/SUPPORTED_JOB_ENTRIES.md))
 
 ## Project structure
 
@@ -55,7 +57,7 @@ Deploy creates folders and uploads the generated project. Run `Master_ETL.py` ma
 ## Tests
 
 ```bash
-python -m unittest tests.test_pentaho_steps -v
+python -m unittest tests.test_pentaho_steps tests.test_general_job_entries -v
 ```
 
 ## Push to GitHub
