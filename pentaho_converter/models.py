@@ -113,6 +113,12 @@ class StepConversionResult:
     errors: list[str] = field(default_factory=list)
     infos: list[str] = field(default_factory=list)
     display_status: str = ""
+    # Navigation metadata (UI "Go to Generated Code") — not part of PySpark logic
+    transformation_name: str = ""
+    generated_file: str = ""
+    function_name: str = ""
+    start_line: int | None = None
+    end_line: int | None = None
 
 
 @dataclass

@@ -7,7 +7,12 @@ from typing import Any
 
 _TRANS_SECTION = re.compile(r"^# Transformation:\s*(.+)\s*$")
 _JOB_SECTION = re.compile(r"^# Job:\s*(.+)\s*$")
-_STEP_MARKER = re.compile(r"^\s*# Step: (.+?) \((.+?)\) \[(.+?)\]\s*$")
+# Legacy marker: # Step: Name (Type) [status]
+_STEP_MARKER_LEGACY = re.compile(r"^\s*# Step: (.+?) \((.+?)\) \[(.+?)\]\s*$")
+# Current generator: # Step 09 : Lookup Provider
+_STEP_MARKER_NUMBERED = re.compile(r"^\s*# Step\s+(\d+)\s*:\s*(.+?)\s*$")
+_STEP_DEF = re.compile(r"^(\s*)def (step_\d+_[A-Za-z0-9_]+)\s*\(")
+_TRANS_IN_CALL = re.compile(r"transformation\s*=\s*['\"]([^'\"]+)['\"]")
 
 
 def build_step_to_file(transformations: dict) -> dict[str, str]:
@@ -49,43 +54,131 @@ def _index_job_sections(code: str) -> dict[str, int]:
     return by_name
 
 
+def _scan_block_extents(block_lines: list[str], start: int) -> dict[str, int]:
+    """Derive header / code extents within a step block."""
+    header_line = start
+    code_start = start
+    code_end = start
+    for offset, block_line in enumerate(block_lines):
+        absolute = start + offset
+        stripped = block_line.strip()
+        if stripped.startswith("# ") and not (
+            stripped.startswith("# Step:") or _STEP_MARKER_NUMBERED.match(stripped)
+        ):
+            header_line = absolute
+        if stripped and not stripped.startswith("#"):
+            if code_start == start:
+                code_start = absolute
+            code_end = absolute
+    return {
+        "header_line": header_line,
+        "code_start_line": code_start if code_end >= code_start else header_line,
+        "code_end_line": code_end if code_end >= code_start else header_line,
+    }
+
+
+def _guess_transformation_name(block_lines: list[str]) -> str:
+    for line in block_lines:
+        match = _TRANS_IN_CALL.search(line)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
 def _index_step_blocks(code: str) -> list[dict[str, Any]]:
-    """Index generated code blocks delimited by ``# Step:`` markers."""
+    """Index generated step blocks (legacy markers or numbered ``# Step N :`` + def)."""
     lines = code.splitlines()
-    blocks: list[dict[str, Any]] = []
+    raw: list[dict[str, Any]] = []
+
     for index, line in enumerate(lines):
-        match = _STEP_MARKER.match(line)
-        if not match:
+        legacy = _STEP_MARKER_LEGACY.match(line)
+        if legacy:
+            raw.append({
+                "step_name": legacy.group(1).strip(),
+                "step_type": legacy.group(2).strip(),
+                "generation_status": legacy.group(3).strip(),
+                "marker_line": index + 1,
+                "function_name": "",
+                "step_number": None,
+            })
             continue
-        blocks.append({
-            "step_name": match.group(1).strip(),
-            "step_type": match.group(2).strip(),
-            "generation_status": match.group(3).strip(),
-            "marker_line": index + 1,
-        })
+        numbered = _STEP_MARKER_NUMBERED.match(line)
+        if numbered:
+            raw.append({
+                "step_name": numbered.group(2).strip(),
+                "step_type": "",
+                "generation_status": "",
+                "marker_line": index + 1,
+                "function_name": "",
+                "step_number": int(numbered.group(1)),
+            })
 
-    for index, block in enumerate(blocks):
+    # Attach ``def step_NN_...`` to the nearest preceding marker when possible.
+    for index, line in enumerate(lines):
+        def_match = _STEP_DEF.match(line)
+        if not def_match:
+            continue
+        func_name = def_match.group(2)
+        attached = False
+        for block in reversed(raw):
+            if block["marker_line"] > index + 1 or block.get("function_name"):
+                continue
+            gap = lines[block["marker_line"] : index]
+            if any(_STEP_DEF.match(g) for g in gap):
+                continue
+            if any(
+                _STEP_MARKER_LEGACY.match(g) or _STEP_MARKER_NUMBERED.match(g)
+                for g in gap
+            ):
+                continue
+            block["function_name"] = func_name
+            attached = True
+            break
+        if not attached:
+            parts = func_name.split("_", 2)
+            approx_name = parts[2].replace("_", " ") if len(parts) >= 3 else func_name
+            raw.append({
+                "step_name": approx_name,
+                "step_type": "",
+                "generation_status": "",
+                "marker_line": index + 1,
+                "function_name": func_name,
+                "step_number": int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else None,
+            })
+
+    raw.sort(key=lambda b: b["marker_line"])
+    blocks: list[dict[str, Any]] = []
+    for index, block in enumerate(raw):
         start = block["marker_line"]
-        end = blocks[index + 1]["marker_line"] - 1 if index + 1 < len(blocks) else len(lines)
-        block["start_line"] = start
-        block["end_line"] = end
+        end = raw[index + 1]["marker_line"] - 1 if index + 1 < len(raw) else len(lines)
+        for line_no in range(start, end + 1):
+            stripped = lines[line_no - 1].strip()
+            if line_no > start and stripped.startswith("def run_"):
+                end = line_no - 1
+                break
         block_lines = lines[start - 1 : end]
-
-        header_line = start
-        code_start = start
-        code_end = start
-        for offset, block_line in enumerate(block_lines):
-            absolute = start + offset
-            stripped = block_line.strip()
-            if stripped.startswith("# ") and not stripped.startswith("# Step:"):
-                header_line = absolute
-            if stripped and not stripped.startswith("#"):
-                if code_start == start:
-                    code_start = absolute
-                code_end = absolute
-        block["header_line"] = header_line
-        block["code_start_line"] = code_start if code_end >= code_start else header_line
-        block["code_end_line"] = code_end if code_end >= code_start else header_line
+        extents = _scan_block_extents(block_lines, start)
+        function_name = block.get("function_name") or ""
+        if not function_name:
+            for bl in block_lines:
+                dm = _STEP_DEF.match(bl)
+                if dm:
+                    function_name = dm.group(2)
+                    break
+        def_line = start
+        for offset, bl in enumerate(block_lines):
+            if _STEP_DEF.match(bl):
+                def_line = start + offset
+                break
+        blocks.append({
+            **block,
+            "function_name": function_name,
+            "transformation_name": _guess_transformation_name(block_lines),
+            "start_line": start,
+            "end_line": end,
+            "def_line": def_line,
+            **extents,
+        })
     return blocks
 
 
@@ -237,7 +330,6 @@ def _step_has_placeholder(block_lines: list[str], errors: list[str]) -> bool:
         for err in errors
     ):
         return True
-    # Match empty-DF sentinel only — not identifiers like null_placeholder_df
     return any(
         "placeholder STRING" in line
         or "'_placeholder" in line
@@ -262,8 +354,8 @@ def _build_step_issues(
     start = block["start_line"]
     end = block["end_line"]
     block_lines = code_lines[start - 1 : end]
-    step_type = getattr(step_result, "step_type", block.get("step_type", ""))
-    status = getattr(step_result, "status", block.get("generation_status", ""))
+    step_type = getattr(step_result, "step_type", None) or block.get("step_type", "")
+    status = getattr(step_result, "status", None) or block.get("generation_status", "")
 
     messages: list[tuple[str, str]] = []
     for err in getattr(step_result, "errors", []) or []:
@@ -307,7 +399,7 @@ def _build_step_issues(
         issues.append({
             "message": getattr(step_result, "detail", "") or f"Step: {block['step_name']}",
             "severity": _severity_for_status(status),
-            "line": block["code_start_line"],
+            "line": block.get("def_line") or block["code_start_line"],
             "end_line": block["code_end_line"],
             "expected": None,
         })
@@ -325,34 +417,56 @@ def _build_step_entry(
     start = block["start_line"]
     end = block["end_line"]
     block_lines = code_lines[start - 1 : end]
-    status = getattr(step_result, "status", block.get("generation_status", ""))
+    status = (
+        getattr(step_result, "status", None)
+        or block.get("generation_status", "")
+        or "converted"
+    )
     errors_list = list(getattr(step_result, "errors", []) or [])
     warnings_list = list(getattr(step_result, "warnings", []) or [])
     score = int(round(float(getattr(step_result, "semantic_score", 0) or 0) * 100))
     has_placeholder = _step_has_placeholder(block_lines, errors_list)
     todo_count = _step_todo_count(status, errors_list)
-    issues = _build_step_issues(step_result, block, code_lines)
+    issues = _build_step_issues(step_result, block, code_lines) if step_result is not None else []
     highlight_level = _compute_highlight_level(
         status,
-        score,
+        score if step_result is not None else 100,
         len(errors_list),
         len(warnings_list),
         todo_count,
         has_placeholder,
     )
+    step_type = (
+        getattr(step_result, "step_type", None)
+        or block.get("step_type", "")
+        or ""
+    )
+    transformation_name = (
+        getattr(step_result, "transformation_name", None)
+        or block.get("transformation_name", "")
+        or ""
+    )
+    function_name = (
+        getattr(step_result, "function_name", None)
+        or block.get("function_name", "")
+        or ""
+    )
+    def_line = block.get("def_line") or block["code_start_line"]
     return {
         "step_name": block["step_name"],
-        "step_type": block["step_type"],
+        "step_type": step_type,
+        "transformation_name": transformation_name,
+        "function_name": function_name,
         "file": generated_file,
         "ktr_file": ktr_file,
         "start_line": start,
         "end_line": end,
         "header_line": block["header_line"],
-        "code_start_line": block["code_start_line"],
+        "code_start_line": def_line,
         "code_end_line": block["code_end_line"],
-        "line": issues[0]["line"] if issues else block["code_start_line"],
+        "line": (issues[0]["line"] if issues else def_line),
         "status": status,
-        "score": score,
+        "score": score if step_result is not None else 100,
         "warnings_count": len(warnings_list),
         "errors_count": len(errors_list),
         "todo_count": todo_count,
@@ -360,6 +474,32 @@ def _build_step_entry(
         "highlight_level": highlight_level,
         "issues": issues,
     }
+
+
+def _match_step_result(
+    block: dict[str, Any],
+    results_by_name: dict[str, list[Any]],
+    results_by_func: dict[str, Any],
+) -> Any | None:
+    func = block.get("function_name") or ""
+    if func and func in results_by_func:
+        return results_by_func[func]
+    candidates = results_by_name.get(block["step_name"], [])
+    if not candidates:
+        return None
+    trans = block.get("transformation_name") or ""
+    if trans:
+        for result in candidates:
+            if getattr(result, "transformation_name", "") == trans:
+                return result
+            detail = getattr(result, "detail", "") or ""
+            if f"Transformation: {trans}" in detail:
+                return result
+    for result in candidates:
+        rf = getattr(result, "function_name", "") or ""
+        if rf and func and rf == func:
+            return result
+    return candidates[0]
 
 
 def _build_step_navigation(
@@ -372,39 +512,52 @@ def _build_step_navigation(
     """Build precise per-step navigation metadata from generated code markers."""
     code_lines = code.splitlines()
     blocks = _index_step_blocks(code)
-    blocks_by_name: dict[str, list[dict[str, Any]]] = {}
-    for block in blocks:
-        blocks_by_name.setdefault(block["step_name"], []).append(block)
 
     results_by_name: dict[str, list[Any]] = {}
+    results_by_func: dict[str, Any] = {}
     for result in step_results or []:
         results_by_name.setdefault(result.step_name, []).append(result)
+        func = getattr(result, "function_name", "") or ""
+        if func:
+            results_by_func[func] = result
 
     steps_by_name: dict[str, dict[str, Any]] = {}
     seen_pairs: set[tuple[str, str]] = set()
 
-    for step_name, block_list in blocks_by_name.items():
-        result_list = results_by_name.get(step_name, [])
-        for index, block in enumerate(block_list):
-            step_result = result_list[index] if index < len(result_list) else result_list[0] if result_list else None
-            if step_result is None:
-                continue
+    for block in blocks:
+        step_result = _match_step_result(block, results_by_name, results_by_func)
+        step_name = block["step_name"]
+        step_type = (
+            getattr(step_result, "step_type", None) if step_result is not None else None
+        ) or block.get("step_type") or ""
 
-            pair = (step_name, block["step_type"])
-            if pair in seen_pairs:
-                continue
-            seen_pairs.add(pair)
+        if step_result is None and not block.get("function_name"):
+            continue
 
-            ktr_file = (step_to_file or {}).get(step_name, "")
-            entry = _build_step_entry(
-                step_result,
-                block,
-                code_lines,
-                generated_file=generated_file,
-                ktr_file=ktr_file,
-            )
-            steps_by_name[step_name] = entry
-            steps_by_name[f"{step_name}\x00{block['step_type']}"] = entry
+        pair = (step_name, step_type)
+        if pair in seen_pairs and step_name in steps_by_name:
+            entry_existing = steps_by_name[step_name]
+            func = block.get("function_name") or ""
+            if func:
+                steps_by_name[f"fn\x00{func}"] = entry_existing
+            continue
+        seen_pairs.add(pair)
+
+        ktr_file = (step_to_file or {}).get(step_name, "")
+        entry = _build_step_entry(
+            step_result,
+            block,
+            code_lines,
+            generated_file=generated_file,
+            ktr_file=ktr_file,
+        )
+        steps_by_name[step_name] = entry
+        if step_type:
+            steps_by_name[f"{step_name}\x00{step_type}"] = entry
+        if entry.get("function_name"):
+            steps_by_name[f"fn\x00{entry['function_name']}"] = entry
+        if entry.get("transformation_name"):
+            steps_by_name[f"{entry['transformation_name']}\x00{step_name}"] = entry
     return steps_by_name
 
 
@@ -569,6 +722,240 @@ def _build_outline_node(
     }
 
 
+def _iter_python_sources(files: dict[str, str]) -> list[tuple[str, str]]:
+    """Yield (path, content) for generated Python modules that may contain steps."""
+    preferred: list[tuple[str, str]] = []
+    others: list[tuple[str, str]] = []
+    for path, content in files.items():
+        if not path.endswith(".py"):
+            continue
+        norm = path.replace("\\", "/")
+        if norm.endswith("__init__.py"):
+            continue
+        if "/engine/" in norm or norm.endswith("/config.py"):
+            continue
+        if "/jobs/" in norm:
+            preferred.append((path, content))
+        else:
+            others.append((path, content))
+    # Prefer transformation-like modules (tr_*) ahead of job orchestrators (jb_*).
+    preferred.sort(key=lambda item: _navigation_file_rank(item[0], ""))
+    others.sort(key=lambda item: _navigation_file_rank(item[0], ""))
+    return preferred + others
+
+
+def _basename_stem(path: str) -> str:
+    name = path.replace("\\", "/").rsplit("/", 1)[-1]
+    if name.lower().endswith(".py"):
+        name = name[:-3]
+    return name
+
+
+def _is_orchestrator_module(path: str) -> bool:
+    """True for master / prep-style job shells that should not own transformation steps."""
+    stem = _basename_stem(path).lower()
+    if stem in {"master_etl", "jb_master", "jb_prep", "main", "workflow"}:
+        return True
+    if stem.startswith("master_") or stem.endswith("_master"):
+        return True
+    return False
+
+
+def _navigation_file_rank(path: str, transformation_name: str = "") -> int:
+    """Lower is better when choosing which generated file owns a transformation step."""
+    norm = (path or "").replace("\\", "/")
+    stem = _basename_stem(norm).lower()
+    trans_stem = ""
+    if transformation_name:
+        trans_stem = re.sub(r"[^a-z0-9_]+", "_", transformation_name.strip().lower()).strip("_")
+
+    rank = 50
+    if "/jobs/" in norm:
+        rank = 20
+    if trans_stem and (stem == trans_stem or stem.endswith("_" + trans_stem) or trans_stem in stem):
+        rank = 0
+    elif stem.startswith("tr_") or stem.startswith("transformation_"):
+        rank = 5
+    elif _is_orchestrator_module(norm):
+        rank = 90
+    elif stem.startswith("jb_"):
+        rank = 40
+    return rank
+
+
+def _file_contains_function(content: str, function_name: str) -> bool:
+    if not content or not function_name:
+        return False
+    pattern = re.compile(rf"^def {re.escape(function_name)}\s*\(", re.MULTILINE)
+    return bool(pattern.search(content))
+
+
+def _prefer_step_entry(
+    existing: dict[str, Any] | None,
+    candidate: dict[str, Any],
+    *,
+    files: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Choose the better navigation entry when the same step key appears in multiple modules."""
+    if existing is None:
+        return candidate
+
+    exist_file = (existing.get("file") or "").replace("\\", "/")
+    cand_file = (candidate.get("file") or "").replace("\\", "/")
+    trans = (
+        candidate.get("transformation_name")
+        or existing.get("transformation_name")
+        or ""
+    )
+    exist_fn = existing.get("function_name") or ""
+    cand_fn = candidate.get("function_name") or ""
+
+    exist_has_fn = bool(exist_fn)
+    cand_has_fn = bool(cand_fn)
+    if cand_has_fn and not exist_has_fn:
+        return candidate
+    if exist_has_fn and not cand_has_fn:
+        return existing
+
+    if files:
+        exist_content = files.get(exist_file) or files.get(existing.get("file") or "") or ""
+        cand_content = files.get(cand_file) or files.get(candidate.get("file") or "") or ""
+        exist_live = _file_contains_function(exist_content, exist_fn) if exist_fn else False
+        cand_live = _file_contains_function(cand_content, cand_fn) if cand_fn else False
+        if cand_live and not exist_live:
+            return candidate
+        if exist_live and not cand_live:
+            return existing
+
+    exist_rank = _navigation_file_rank(exist_file, trans)
+    cand_rank = _navigation_file_rank(cand_file, trans)
+    if cand_rank < exist_rank:
+        return candidate
+    if exist_rank < cand_rank:
+        return existing
+
+    # Prefer the entry that already has precise line extents.
+    exist_lines = bool(existing.get("code_start_line") or existing.get("start_line"))
+    cand_lines = bool(candidate.get("code_start_line") or candidate.get("start_line"))
+    if cand_lines and not exist_lines:
+        return candidate
+    return existing
+
+
+def _search_files_for_step(
+    files: dict[str, str],
+    *,
+    step_name: str,
+    step_type: str = "",
+    transformation_name: str = "",
+    function_name: str = "",
+) -> dict[str, Any] | None:
+    """Locate ``def step_<...>`` for a validation row when index metadata is missing."""
+    if not files or not (step_name or function_name):
+        return None
+
+    safe = re.sub(r"[^A-Za-z0-9_]+", "_", (step_name or "").strip()).strip("_") or "step"
+    sources = _iter_python_sources(files)
+    sources = sorted(
+        sources,
+        key=lambda item: _navigation_file_rank(item[0], transformation_name),
+    )
+
+    marker_re = re.compile(
+        rf"^\s*# Step(?:\s+\d+\s*:|:)\s*{re.escape(step_name)}\b"
+    ) if step_name else None
+    legacy_re = re.compile(
+        rf"^\s*# Step:\s*{re.escape(step_name)}\s*\("
+        + (re.escape(step_type) if step_type else r"[^)]+")
+        + r"\)"
+    ) if step_name else None
+    exact_def = (
+        re.compile(rf"^def {re.escape(function_name)}\s*\(")
+        if function_name
+        else None
+    )
+    name_def = re.compile(rf"^def (step_\d+_{re.escape(safe)})\s*\(") if step_name else None
+
+    def _scan(path: str, content: str) -> dict[str, Any] | None:
+        lines = content.splitlines()
+        for index, line in enumerate(lines):
+            found_fn = ""
+            start = 0
+            if exact_def and exact_def.match(line):
+                found_fn = function_name
+                start = index + 1
+            elif name_def:
+                match = name_def.match(line)
+                if match:
+                    found_fn = match.group(1)
+                    start = index + 1
+            if not start and marker_re and marker_re.match(line):
+                start = index + 1
+                for j in range(index, min(index + 8, len(lines))):
+                    dm = _STEP_DEF.match(lines[j])
+                    if dm:
+                        found_fn = dm.group(2)
+                        start = j + 1
+                        break
+            if not start and legacy_re and legacy_re.match(line):
+                start = index + 1
+            if not start:
+                continue
+            end = len(lines)
+            for k in range(start, len(lines)):
+                stripped = lines[k]
+                if (
+                    _STEP_MARKER_LEGACY.match(stripped)
+                    or _STEP_MARKER_NUMBERED.match(stripped)
+                    or re.match(r"^def (?:step_\d+|run_)", stripped)
+                ):
+                    if k + 1 != start:
+                        end = k
+                        break
+            while end > start and not lines[end - 1].strip():
+                end -= 1
+            return {
+                "step_name": step_name,
+                "step_type": step_type,
+                "transformation_name": transformation_name,
+                "function_name": found_fn or function_name,
+                "file": path,
+                "ktr_file": "",
+                "start_line": start,
+                "end_line": end,
+                "header_line": start,
+                "code_start_line": start,
+                "code_end_line": end,
+                "line": start,
+                "status": "converted",
+                "score": 100,
+                "warnings_count": 0,
+                "errors_count": 0,
+                "todo_count": 0,
+                "has_placeholder": False,
+                "highlight_level": "success",
+                "issues": [],
+            }
+        return None
+
+    # Prefer non-orchestrator modules that actually own transformation step functions.
+    for path, content in sources:
+        if transformation_name and _is_orchestrator_module(path):
+            continue
+        found = _scan(path, content)
+        if found:
+            return found
+
+    # Last resort only: orchestrators (jb_master / jb_prep / Master_ETL).
+    for path, content in sources:
+        if not _is_orchestrator_module(path):
+            continue
+        found = _scan(path, content)
+        if found:
+            return found
+    return None
+
+
 def build_code_navigation(
     generated_code: str,
     lineage: dict,
@@ -668,3 +1055,248 @@ def build_code_navigation(
         "transformation_sections": transformation_sections,
         "outline": outline,
     }
+
+
+def build_project_code_navigation(
+    files: dict[str, str],
+    lineage: dict,
+    inventory: list[dict],
+    *,
+    step_to_file: dict[str, str] | None = None,
+    step_results: list[Any] | None = None,
+    main_workflow: str = "",
+) -> dict[str, Any]:
+    """Index step navigation across all generated project Python modules.
+
+    Scans each job module once (not on every UI click) and merges step metadata.
+    Transformation step ownership prefers the module that actually defines
+    ``def step_<...>`` (never Master_ETL / jb_master merely because they are primary).
+    """
+    sources = _iter_python_sources(files)
+    if not sources and files:
+        first = next(iter(files.items()))
+        sources = [first]
+
+    # Prefer a non-orchestrator jobs module as the outline/primary scan target.
+    primary_path = ""
+    for path, _content in sources:
+        if not _is_orchestrator_module(path):
+            primary_path = path
+            break
+    if not primary_path:
+        primary_path = main_workflow or (sources[0][0] if sources else "")
+    primary_code = files.get(primary_path, "") if primary_path else ""
+    if not primary_code and sources:
+        primary_path, primary_code = sources[0]
+
+    nav = build_code_navigation(
+        primary_code,
+        lineage,
+        inventory,
+        step_to_file=step_to_file,
+        step_results=step_results,
+        generated_file=primary_path,
+    )
+
+    merged_steps: dict[str, dict[str, Any]] = {}
+    # Re-index every source; do not seed from primary alone (avoids orchestrator wins).
+    for path, content in sources:
+        file_steps = _build_step_navigation(
+            content,
+            step_results=step_results,
+            step_to_file=step_to_file,
+            generated_file=path,
+        )
+        for key, entry in file_steps.items():
+            merged_steps[key] = _prefer_step_entry(
+                merged_steps.get(key),
+                entry,
+                files=files,
+            )
+
+    # Ensure every StepConversionResult can resolve via transformation\0step / fn keys.
+    for result in step_results or []:
+        entry = _lookup_step_entry(merged_steps, result)
+        if entry is None:
+            found = _search_files_for_step(
+                files,
+                step_name=getattr(result, "step_name", "") or "",
+                step_type=getattr(result, "step_type", "") or "",
+                transformation_name=getattr(result, "transformation_name", "") or "",
+                function_name=getattr(result, "function_name", "") or "",
+            )
+            if found:
+                entry = found
+                _index_step_entry(merged_steps, entry)
+        elif entry:
+            # Keep compound keys fresh even when plain step_name pointed at a worse file.
+            _index_step_entry(merged_steps, entry)
+
+    sections_by_step: dict[str, dict[str, Any]] = {}
+    for step_name, entry in merged_steps.items():
+        if "\x00" in step_name:
+            continue
+        sections_by_step[step_name] = entry
+
+    nav["steps_by_name"] = merged_steps
+    nav["sections_by_step"] = sections_by_step
+    nav["indexed_files"] = [path for path, _ in sources]
+    nav["step_locations"] = navigation_report_payload(
+        {"steps_by_name": merged_steps}
+    )
+    return nav
+
+
+def _index_step_entry(steps_by_name: dict[str, dict[str, Any]], entry: dict[str, Any]) -> None:
+    """Register an entry under plain, typed, function, and transformation keys."""
+    step_name = entry.get("step_name") or ""
+    step_type = entry.get("step_type") or ""
+    function_name = entry.get("function_name") or ""
+    transformation_name = entry.get("transformation_name") or ""
+
+    if step_name:
+        steps_by_name[step_name] = _prefer_step_entry(steps_by_name.get(step_name), entry)
+        if step_type:
+            typed = f"{step_name}\x00{step_type}"
+            steps_by_name[typed] = _prefer_step_entry(steps_by_name.get(typed), entry)
+    if function_name:
+        fn_key = f"fn\x00{function_name}"
+        steps_by_name[fn_key] = _prefer_step_entry(steps_by_name.get(fn_key), entry)
+    if transformation_name and step_name:
+        trans_key = f"{transformation_name}\x00{step_name}"
+        steps_by_name[trans_key] = _prefer_step_entry(steps_by_name.get(trans_key), entry)
+
+
+def _lookup_step_entry(
+    steps: dict[str, dict[str, Any]],
+    result: Any,
+) -> dict[str, Any] | None:
+    """Resolve navigation for a validation row — transformation scope first."""
+    func = getattr(result, "function_name", "") or ""
+    step_name = getattr(result, "step_name", "") or ""
+    step_type = getattr(result, "step_type", "") or ""
+    trans = getattr(result, "transformation_name", "") or ""
+
+    candidates: list[dict[str, Any]] = []
+    if func:
+        entry = steps.get(f"fn\x00{func}")
+        if entry:
+            candidates.append(entry)
+    if trans and step_name:
+        entry = steps.get(f"{trans}\x00{step_name}")
+        if entry:
+            candidates.append(entry)
+    if step_name and step_type:
+        entry = steps.get(f"{step_name}\x00{step_type}")
+        if entry:
+            candidates.append(entry)
+    if step_name:
+        entry = steps.get(step_name)
+        if entry:
+            candidates.append(entry)
+
+    best: dict[str, Any] | None = None
+    for entry in candidates:
+        best = _prefer_step_entry(best, entry)
+    return best
+
+
+def enrich_step_results_with_navigation(
+    step_results: list[Any],
+    code_navigation: dict[str, Any],
+    *,
+    files: dict[str, str] | None = None,
+) -> None:
+    """Copy resolved file/line/function metadata onto ``StepConversionResult`` objects.
+
+    Every validation row should end with non-empty ``generated_file``,
+    ``function_name``, ``start_line``, and ``end_line`` when the step exists in
+    generated code. Never leave transformation steps pointed at jb_master/jb_prep
+    when a better owning module is available.
+    """
+    steps = (code_navigation or {}).get("steps_by_name") or {}
+    file_map = files or {}
+
+    for result in step_results or []:
+        entry = _lookup_step_entry(steps, result)
+        if entry is None and file_map:
+            entry = _search_files_for_step(
+                file_map,
+                step_name=result.step_name,
+                step_type=result.step_type,
+                transformation_name=getattr(result, "transformation_name", "") or "",
+                function_name=getattr(result, "function_name", "") or "",
+            )
+            if entry:
+                _index_step_entry(steps, entry)
+
+        if not entry:
+            continue
+
+        # If metadata points at an orchestrator that does not define the function, re-search.
+        func = entry.get("function_name") or getattr(result, "function_name", "") or ""
+        entry_file = entry.get("file") or ""
+        content = file_map.get(entry_file, "") if file_map else ""
+        if (
+            file_map
+            and func
+            and (
+                _is_orchestrator_module(entry_file)
+                or (content and not _file_contains_function(content, func))
+            )
+        ):
+            repaired = _search_files_for_step(
+                file_map,
+                step_name=result.step_name,
+                step_type=result.step_type,
+                transformation_name=getattr(result, "transformation_name", "") or "",
+                function_name=func,
+            )
+            if repaired:
+                entry = repaired
+                _index_step_entry(steps, entry)
+
+        if not getattr(result, "function_name", ""):
+            result.function_name = entry.get("function_name") or ""
+        if not getattr(result, "transformation_name", ""):
+            result.transformation_name = entry.get("transformation_name") or ""
+        result.generated_file = entry.get("file") or result.generated_file or ""
+        result.start_line = entry.get("code_start_line") or entry.get("start_line")
+        result.end_line = entry.get("code_end_line") or entry.get("end_line")
+
+    if code_navigation is not None:
+        code_navigation["steps_by_name"] = steps
+        code_navigation["step_locations"] = navigation_report_payload(
+            {"steps_by_name": steps}
+        )
+
+
+def navigation_report_payload(code_navigation: dict[str, Any]) -> list[dict[str, Any]]:
+    """Compact step-location list suitable for project report / JSON persistence."""
+    steps = (code_navigation or {}).get("steps_by_name") or {}
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for key, entry in steps.items():
+        if "\x00" in key:
+            continue
+        sig = (
+            entry.get("transformation_name") or "",
+            entry.get("step_name") or "",
+            entry.get("function_name") or "",
+        )
+        if sig in seen:
+            continue
+        seen.add(sig)
+        rows.append({
+            "transformation_name": entry.get("transformation_name") or "",
+            "step_name": entry.get("step_name") or "",
+            "step_type": entry.get("step_type") or "",
+            "generated_file": entry.get("file") or "",
+            "function_name": entry.get("function_name") or "",
+            "start_line": entry.get("code_start_line") or entry.get("start_line"),
+            "end_line": entry.get("code_end_line") or entry.get("end_line"),
+            "status": entry.get("status") or "",
+        })
+    rows.sort(key=lambda r: (r["generated_file"], r["start_line"] or 0, r["step_name"]))
+    return rows
+

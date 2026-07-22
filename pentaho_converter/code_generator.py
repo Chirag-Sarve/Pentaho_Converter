@@ -397,6 +397,11 @@ class PySparkCodeGenerator:
         transformation: PentahoTransformation,
         step,
         outcome,
+        *,
+        function_name: str = "",
+        generated_file: str = "",
+        start_line: int | None = None,
+        end_line: int | None = None,
     ) -> None:
         if not hasattr(stats, "step_outcomes"):
             stats.step_outcomes = []
@@ -413,6 +418,13 @@ class PySparkCodeGenerator:
                 semantic_score=outcome.semantic_score,
                 warnings=outcome.warnings,
                 errors=outcome.errors,
+                infos=list(getattr(outcome, "infos", []) or []),
+                display_status=getattr(outcome, "display_status", "") or "",
+                transformation_name=transformation.name,
+                generated_file=generated_file,
+                function_name=function_name,
+                start_line=start_line,
+                end_line=end_line,
             )
         )
         if outcome.status == "converted":
@@ -642,7 +654,15 @@ class PySparkCodeGenerator:
             if out_df:
                 last_output = out_df
 
-            self._record_step_outcome(stats, logs, transformation, step, outcome)
+            # Record navigation metadata only (file/line filled after module assembly).
+            self._record_step_outcome(
+                stats,
+                logs,
+                transformation,
+                step,
+                outcome,
+                function_name=step_fn,
+            )
 
             from .lineage import infer_output_columns
             from .validation.step_validators import parse_step_config

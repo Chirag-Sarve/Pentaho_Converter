@@ -277,7 +277,10 @@ def validate_generated_project(
                 )
 
     for path in files:
-        if not path.startswith(prefix) and path != f"{root}/VALIDATION_REPORT.md":
+        if not path.startswith(prefix) and path not in {
+            f"{root}/VALIDATION_REPORT.md",
+            f"{root}/CODE_NAVIGATION.json",
+        }:
             report.add("info", "EXTRA_FILE", f"File outside package root: {path}")
 
     return report

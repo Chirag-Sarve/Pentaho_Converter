@@ -155,6 +155,11 @@ def _build_analysis(result) -> dict:
                 "warnings": getattr(s, "warnings", []),
                 "errors": getattr(s, "errors", []),
                 "infos": getattr(s, "infos", []),
+                "transformation_name": getattr(s, "transformation_name", "") or "",
+                "generated_file": getattr(s, "generated_file", "") or "",
+                "function_name": getattr(s, "function_name", "") or "",
+                "start_line": getattr(s, "start_line", None),
+                "end_line": getattr(s, "end_line", None),
             }
             for s in steps
         ],

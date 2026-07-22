@@ -1937,143 +1937,6 @@
       overflow-y: auto;
       background: #F8FAFC;
       min-height: 0;
-      position: relative;
-    }
-
-    .output-code .code-highlight {
-      position: absolute;
-      left: 0;
-      right: 0;
-      background: rgba(59, 130, 246, 0.18);
-      border-left: 3px solid #3B82F6;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      z-index: 1;
-    }
-
-    .output-code .code-highlight.success {
-      background: rgba(34, 197, 94, 0.14);
-      border-left-color: #22C55E;
-    }
-
-    .output-code .code-highlight.warning {
-      background: rgba(234, 179, 8, 0.16);
-      border-left-color: #EAB308;
-    }
-
-    .output-code .code-highlight.error {
-      background: rgba(239, 68, 68, 0.16);
-      border-left-color: #EF4444;
-    }
-
-    .output-code .code-highlight.visible {
-      opacity: 1;
-    }
-
-    .output-code .code-highlight.fading {
-      opacity: 0;
-    }
-
-    .output-code .code-validation-annotation {
-      position: absolute;
-      left: 0.75rem;
-      right: 0.75rem;
-      z-index: 2;
-      display: none;
-      padding: 0.55rem 0.7rem;
-      border-radius: 6px;
-      background: rgba(30, 41, 59, 0.96);
-      border: 1px solid rgba(59, 130, 246, 0.45);
-      color: #bfdbfe;
-      font-size: 0.74rem;
-      line-height: 1.45;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.25s ease;
-    }
-
-    .output-code .code-validation-annotation.visible {
-      display: block;
-      opacity: 1;
-    }
-
-    .output-code .code-validation-annotation.success {
-      border-color: rgba(34, 197, 94, 0.45);
-      color: #bbf7d0;
-    }
-
-    .output-code .code-validation-annotation.warning {
-      border-color: rgba(234, 179, 8, 0.45);
-      color: #fde68a;
-    }
-
-    .output-code .code-validation-annotation.error {
-      border-color: rgba(239, 68, 68, 0.45);
-      color: #fecaca;
-    }
-
-    .output-code .code-validation-annotation .validation-badge {
-      font-weight: 600;
-      margin-bottom: 0.2rem;
-    }
-
-    .output-code .code-validation-annotation .validation-detail {
-      font-size: 0.72rem;
-    }
-
-    .output-code .code-validation-annotation .expected {
-      margin-top: 0.35rem;
-      color: #cbd5e1;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.68rem;
-    }
-
-    .code-error-nav {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 0.65rem;
-      padding: 0.55rem 0.75rem;
-      border-top: 1px solid var(--border);
-      background: var(--surface-2);
-      font-size: 0.72rem;
-    }
-
-    .code-error-nav.visible {
-      display: flex;
-    }
-
-    .code-error-nav .error-counter {
-      color: var(--text-muted);
-      min-width: 4rem;
-      text-align: center;
-    }
-
-    .nav-error-toast {
-      position: fixed;
-      bottom: 1.5rem;
-      left: 50%;
-      transform: translateX(-50%) translateY(12px);
-      background: #1e293b;
-      border: 1px solid #475569;
-      color: #f8fafc;
-      padding: 0.75rem 1.1rem;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-      z-index: 200;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.2s ease;
-      max-width: min(90vw, 420px);
-      text-align: center;
-    }
-
-    .nav-error-toast.visible {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
     }
 
     .inv-actions {
@@ -3490,14 +3353,7 @@
                             Generated PySpark files will appear here after conversion.
                           </div>
                           <div class="output-code" id="output-area" style="display:none;">
-                            <div class="code-validation-annotation" id="code-validation-annotation" aria-live="polite"></div>
-                            <div class="code-highlight" id="code-highlight" aria-hidden="true"></div>
                             <pre><code class="language-python" id="code-block"></code></pre>
-                          </div>
-                          <div class="code-error-nav" id="code-error-nav">
-                            <button class="btn btn-ghost btn-xs" id="code-error-prev" type="button">Previous Error</button>
-                            <span class="error-counter" id="code-error-counter">1 / 1</span>
-                            <button class="btn btn-ghost btn-xs" id="code-error-next" type="button">Next Error</button>
                           </div>
                           <div class="summary-bar" id="summary-bar">
                             <span class="summary-item">Jobs: <strong id="stat-jobs">0</strong></span>
@@ -3630,7 +3486,7 @@
                         <div class="validation-table-card validation-step-card">
                           <div class="validation-table-scroll validation-lazy-slot" id="step-breakdown-slot" data-loaded="false">
                             <table class="tx-table">
-                              <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Score</th><th>Has Logic</th><th>Detail</th><th></th></tr></thead>
+                              <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Score</th><th>Has Logic</th><th>Detail</th></tr></thead>
                               <tbody id="tx-tbody"></tbody>
                             </table>
                           </div>
@@ -4436,10 +4292,6 @@
   let generatedFiles = {};
   let zipBase64 = '';
   let activeFile = '';
-  let codeNavigation = null;
-  let codeHighlightTimer = null;
-  let currentValidationNav = null;
-
   // --- Analysis panel elements ---
   const analysisSection  = document.getElementById('analysis-section');
   const analysisToggle   = document.getElementById('analysis-toggle');
@@ -4753,7 +4605,6 @@
       const base = String(name || '').replace(/\\/g, '/').split('/').pop();
       titleEl.textContent = base || 'Generated PySpark';
     }
-    clearCodeHighlight();
     placeholder.style.display = 'none';
     outputArea.style.display = 'block';
     outputDrawer.classList.add('visible');
@@ -4801,302 +4652,12 @@
     return true;
   }
 
-  function clearCodeHighlight() {
-    const highlight = document.getElementById('code-highlight');
-    const annotation = document.getElementById('code-validation-annotation');
-    if (highlight) {
-      highlight.classList.remove('visible', 'fading', 'success', 'warning', 'error');
-      highlight.style.height = '0';
-    }
-    if (annotation) {
-      annotation.classList.remove('visible', 'success', 'warning', 'error');
-      annotation.innerHTML = '';
-      annotation.style.display = 'none';
-      annotation.style.opacity = '';
-    }
-    if (codeHighlightTimer) {
-      clearTimeout(codeHighlightTimer);
-      codeHighlightTimer = null;
-    }
-  }
-
-  function getHighlightLevel(entry) {
-    if (!entry) return 'error';
-    if (entry.highlight_level) return entry.highlight_level;
-    const status = (entry.status || '').toLowerCase();
-    const score = entry.score != null ? entry.score : 0;
-    const warnings = entry.warnings_count || 0;
-    const errors = entry.errors_count || 0;
-    const todos = entry.todo_count || 0;
-    const hasPlaceholder = !!entry.has_placeholder;
-    if (status === 'converted' && errors === 0 && todos === 0 && !hasPlaceholder) {
-      // Fully executable Spark: treat as success even when legacy INFO metadata is preserved.
-      if (warnings === 0 || score >= 95) return 'success';
-      return 'warning'; // CONVERTED WITH WARNINGS
-    }
-    if (['failed', 'unsupported', 'skipped'].includes(status) || errors > 0 || hasPlaceholder || todos > 0 || score < 70) {
-      return 'error';
-    }
-    if (warnings > 0 || ['partial', 'partially_supported', 'approximated', 'manual_required'].includes(status) || (score >= 70 && score <= 99)) {
-      return 'warning';
-    }
-    return 'error';
-  }
-
-  function buildValidationAnnotationHtml(level, message, expected) {
-    let badge = '';
-    let detail = '';
-    if (level === 'success') {
-      badge = '🟢 Fully Converted';
-      detail = '✓ Fully Converted';
-    } else if (level === 'warning') {
-      badge = '🟡 Warning';
-      detail = message ? ('⚠️ ' + esc(message)) : '';
-    } else {
-      badge = '🔴 Validation Error';
-      detail = message ? ('❌ ' + esc(message)) : '';
-    }
-    let html = '<div class="validation-badge">' + badge + '</div>';
-    if (detail) html += '<div class="validation-detail">' + detail + '</div>';
-    if (expected && level === 'error') {
-      html += '<div class="expected">Expected<br>' + esc(expected) + '</div>';
-    }
-    return html;
-  }
-
-  function highlightCodeSection(startLine, endLine, options) {
-    options = options || {};
-    clearCodeHighlight();
-    const pre = codeBlock.closest('pre');
-    const highlight = document.getElementById('code-highlight');
-    if (!pre || !highlight) return;
-
-    const lineHeight = getCodeLineHeight();
-    const paddingTop = parseFloat(window.getComputedStyle(pre).paddingTop) || 0;
-    const top = paddingTop + (startLine - 1) * lineHeight;
-    const height = Math.max(lineHeight, ((endLine || startLine) - startLine + 1) * lineHeight);
-    const level = options.highlightLevel || null;
-
-    highlight.style.top = top + 'px';
-    highlight.style.height = height + 'px';
-    if (level) highlight.classList.add(level);
-    highlight.classList.add('visible');
-
-    if (options.annotation) {
-      const annotation = document.getElementById('code-validation-annotation');
-      if (annotation) {
-        const annLevel = options.annotation.level || level || 'error';
-        annotation.innerHTML = buildValidationAnnotationHtml(
-          annLevel,
-          options.annotation.message || '',
-          options.annotation.expected
-        );
-        annotation.classList.add(annLevel);
-        annotation.style.display = 'block';
-        annotation.classList.add('visible');
-        requestAnimationFrame(() => {
-          annotation.style.top = Math.max(8, top - annotation.offsetHeight - 8) + 'px';
-        });
-      }
-    }
-
-    const fadeMs = options.fadeMs != null ? options.fadeMs : 3000;
-    codeHighlightTimer = setTimeout(() => {
-      highlight.classList.add('fading');
-      const annotation = document.getElementById('code-validation-annotation');
-      if (annotation) annotation.style.opacity = '0';
-      setTimeout(clearCodeHighlight, 420);
-    }, fadeMs);
-  }
-
-  function hideValidationErrorNav() {
-    const nav = document.getElementById('code-error-nav');
-    if (nav) nav.classList.remove('visible');
-    currentValidationNav = null;
-  }
-
-  function getCodeLineHeight() {
-    const pre = codeBlock.closest('pre');
-    if (!pre) return 22;
-    const style = window.getComputedStyle(pre);
-    const lineHeight = parseFloat(style.lineHeight);
-    if (!Number.isNaN(lineHeight) && lineHeight > 0) return lineHeight;
-    const fontSize = parseFloat(style.fontSize) || 12.8;
-    return fontSize * 1.7;
-  }
-
-  function scrollToCodeSection(startLine, endLine, options) {
-    options = options || {};
-    const container = document.getElementById('output-area');
-    const pre = codeBlock.closest('pre');
-    if (!container || !pre) return;
-
-    const lineHeight = getCodeLineHeight();
-    const paddingTop = parseFloat(window.getComputedStyle(pre).paddingTop) || 0;
-    const blockHeight = ((endLine || startLine) - startLine + 1) * lineHeight;
-    const centerOffset = options.center === false
-      ? container.clientHeight * 0.15
-      : (container.clientHeight - blockHeight) / 2;
-    const targetTop = paddingTop + (startLine - 1) * lineHeight - Math.max(0, centerOffset);
-
-    container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
-    setTimeout(() => highlightCodeSection(startLine, endLine, options), 320);
-  }
-
-  function showNavigationError(message) {
-    let toast = document.getElementById('nav-error-toast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'nav-error-toast';
-      toast.className = 'nav-error-toast';
-      toast.setAttribute('role', 'alert');
-      document.body.appendChild(toast);
-    }
-    toast.textContent = message || 'Unable to locate generated code for this component.';
-    toast.classList.add('visible');
-    setTimeout(() => toast.classList.remove('visible'), 4000);
-  }
-
-  function resolveStepNavigation(stepName, stepType) {
-    if (!codeNavigation || !codeNavigation.steps_by_name) return null;
-    const typedKey = stepType ? stepName + '\0' + stepType : null;
-    if (typedKey && codeNavigation.steps_by_name[typedKey]) {
-      return codeNavigation.steps_by_name[typedKey];
-    }
-    return codeNavigation.steps_by_name[stepName] || null;
-  }
-
-  function resolveNavigationSection(identifier, kind) {
-    if (!codeNavigation) return null;
-    if (kind === 'step') {
-      return resolveStepNavigation(identifier, null);
-    }
-    return codeNavigation.sections_by_file?.[identifier] || null;
-  }
-
-  function updateValidationErrorNav(entry, issueIndex) {
-    const nav = document.getElementById('code-error-nav');
-    const counter = document.getElementById('code-error-counter');
-    const prevBtn = document.getElementById('code-error-prev');
-    const nextBtn = document.getElementById('code-error-next');
-    if (!nav || !entry || !entry.issues || entry.issues.length <= 1) {
-      hideValidationErrorNav();
-      return;
-    }
-
-    currentValidationNav = { entry, issueIndex };
-    nav.classList.add('visible');
-    counter.textContent = (issueIndex + 1) + ' / ' + entry.issues.length;
-    prevBtn.disabled = issueIndex <= 0;
-    nextBtn.disabled = issueIndex >= entry.issues.length - 1;
-  }
-
-  function showValidationIssue(entry, issueIndex) {
-    const level = getHighlightLevel(entry);
-    const issues = entry.issues || [];
-
-    if (level === 'success') {
-      scrollToCodeSection(
-        entry.code_start_line || entry.start_line,
-        entry.code_end_line || entry.end_line,
-        {
-          center: true,
-          highlightLevel: 'success',
-          annotation: { level: 'success' },
-        }
-      );
-      hideValidationErrorNav();
-      return true;
-    }
-
-    if (!issues.length) {
-      scrollToCodeSection(
-        entry.code_start_line || entry.start_line,
-        entry.code_end_line || entry.end_line,
-        {
-          center: true,
-          highlightLevel: level,
-          annotation: {
-            level,
-            message: entry.detail || entry.status || '',
-          },
-        }
-      );
-      hideValidationErrorNav();
-      return true;
-    }
-
-    const idx = Math.max(0, Math.min(issueIndex, issues.length - 1));
-    const issue = issues[idx];
-    const issueLevel = issue.severity === 'warning' && level !== 'error' ? 'warning' : level;
-    scrollToCodeSection(issue.line, issue.end_line || issue.line, {
-      center: true,
-      highlightLevel: issueLevel,
-      annotation: {
-        level: issueLevel,
-        message: issue.message,
-        expected: issue.expected,
-      },
-    });
-    updateValidationErrorNav(entry, idx);
-    return true;
-  }
-
-  function navigateToValidationStep(stepName, stepType) {
-    const entry = resolveStepNavigation(stepName, stepType);
-    if (!entry) {
-      showNavigationError();
-      return false;
-    }
-    const level = getHighlightLevel(entry);
-    if (level !== 'success' && (!entry.issues || !entry.issues.length)) {
-      showNavigationError();
-      return false;
-    }
-
-    const pyFile = entry.file || activeFile || Object.keys(generatedFiles)[0];
-    if (!pyFile || !generatedFiles[pyFile]) {
-      showNavigationError();
-      return false;
-    }
-
-    navigateTo('upload');
-    selectFile(pyFile);
-    outputDrawer.classList.add('visible');
-    placeholder.style.display = 'none';
-    outputArea.style.display = 'block';
-    const empty = document.getElementById('workspace-empty');
-    const work = document.getElementById('work-content');
-    if (empty) empty.classList.add('hidden');
-    if (work) {
-      work.classList.remove('hidden');
-      work.classList.add('has-output');
-    }
-
-    requestAnimationFrame(() => {
-      setTimeout(() => showValidationIssue(entry, 0), 60);
-    });
-
-    setTimeout(() => {
-      outputDrawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 120);
-
-    return true;
-  }
-
   function navigateToGeneratedSection(identifier, options) {
     options = options || {};
-    if (options.kind === 'step') {
-      return navigateToValidationStep(identifier, options.stepType || null);
-    }
-
-    hideValidationErrorNav();
-    const kind = options.kind || 'file';
     const pyFile = findGeneratedFileFor(identifier)
       || activeFile
       || Object.keys(generatedFiles || {})[0];
     if (!pyFile || !generatedFiles[pyFile]) {
-      showNavigationError();
       return false;
     }
 
@@ -5106,36 +4667,12 @@
 
     ensureGeneratedPreviewVisible(pyFile);
 
-    const section = resolveNavigationSection(identifier, kind)
-      || resolveNavigationSection(pyFile, kind);
-    if (section && section.line) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          scrollToCodeSection(section.line, section.end_line || section.line, { center: false });
-        }, 60);
-      });
-    }
-
     setTimeout(() => {
       outputDrawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 120);
 
     return true;
   }
-
-  document.getElementById('code-error-prev')?.addEventListener('click', () => {
-    if (!currentValidationNav) return;
-    const nextIndex = currentValidationNav.issueIndex - 1;
-    if (nextIndex < 0) return;
-    showValidationIssue(currentValidationNav.entry, nextIndex);
-  });
-
-  document.getElementById('code-error-next')?.addEventListener('click', () => {
-    if (!currentValidationNav) return;
-    const nextIndex = currentValidationNav.issueIndex + 1;
-    if (nextIndex >= currentValidationNav.entry.issues.length) return;
-    showValidationIssue(currentValidationNav.entry, nextIndex);
-  });
 
   // --- File Upload ---
   uploadZone.addEventListener('click', (e) => {
@@ -5395,9 +4932,6 @@
     projectInventory = [];
     lastSummary = null;
     lastAnalysis = null;
-    codeNavigation = null;
-    clearCodeHighlight();
-    hideValidationErrorNav();
     lastConvertedName = 'pentaho_converted';
     updateProjectMeta(null, 'Ready', null);
     document.getElementById('header-badge-status').style.display = 'none';
@@ -5469,7 +5003,6 @@
 
       lastSummary = data.summary;
       lastAnalysis = data.analysis;
-      codeNavigation = data.code_navigation || null;
       renderedAnalysisRef = null;
       validationHeavyRendered = false;
       hideProgress();
@@ -5767,7 +5300,7 @@
 
     const txs = r.transformations || [];
     if (txs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted);text-align:center;padding:1rem;">No steps found in Pentaho transformations</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:1rem;">No steps found in Pentaho transformations</td></tr>';
     } else {
       const frag = document.createDocumentFragment();
       txs.forEach(tx => {
@@ -5784,14 +5317,10 @@
           <td>${statusBadge}</td>
           <td>${score}</td>
           <td>${logicIcon}</td>
-          <td style="color:var(--text-muted);font-size:0.72rem">${esc(detailParts.join('; ') || '—')}</td>
-          <td><button class="btn btn-ghost btn-xs val-open" data-step="${esc(tx.name)}" data-step-type="${esc(tx.type)}" type="button">Open</button></td>`;
+          <td style="color:var(--text-muted);font-size:0.72rem">${esc(detailParts.join('; ') || '—')}</td>`;
         frag.appendChild(tr);
       });
       tbody.appendChild(frag);
-      tbody.querySelectorAll('.val-open').forEach(btn => {
-        btn.addEventListener('click', () => navigateToValidationStep(btn.dataset.step, btn.dataset.stepType));
-      });
     }
     const stepSlot = document.getElementById('step-breakdown-slot');
     if (stepSlot) stepSlot.dataset.loaded = 'true';

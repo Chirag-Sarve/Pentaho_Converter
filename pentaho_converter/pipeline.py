@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 import zipfile
 from pathlib import Path
@@ -188,27 +189,42 @@ def convert_pentaho_project(
         result.project_inventory = inventory
         result.lineage = lineage
 
-        from .code_navigation import build_code_navigation, build_step_to_file
+        from .code_navigation import (
+            build_project_code_navigation,
+            build_step_to_file,
+            enrich_step_results_with_navigation,
+            navigation_report_payload,
+        )
 
-        # Prefer Master_ETL for navigation; fall back to first job module
-        primary_code = output_files.get(result.main_workflow, "") if result.main_workflow else ""
-        if not primary_code:
-            for path, content in output_files.items():
-                norm = path.replace("\\", "/")
-                if "/jobs/" in norm and path.endswith(".py") and not path.endswith("__init__.py"):
-                    primary_code = content
-                    break
-        if not primary_code and output_files:
-            primary_code = next(iter(output_files.values()))
-        if primary_code:
-            result.code_navigation = build_code_navigation(
-                primary_code,
-                lineage,
-                inventory,
-                step_to_file=build_step_to_file(transformations),
-                step_results=stats.step_results,
-                generated_file=result.main_workflow or "",
-            )
+        # Index all generated job modules once; persist locations for the UI.
+        result.code_navigation = build_project_code_navigation(
+            output_files,
+            lineage,
+            inventory,
+            step_to_file=build_step_to_file(transformations),
+            step_results=stats.step_results,
+            main_workflow=result.main_workflow or "",
+        )
+        enrich_step_results_with_navigation(
+            stats.step_results,
+            result.code_navigation,
+            files=output_files,
+        )
+
+        root = safe_package_root(project_name)
+        nav_path = f"{root}/CODE_NAVIGATION.json"
+        payload = {
+            "step_locations": navigation_report_payload(result.code_navigation),
+            "indexed_files": result.code_navigation.get("indexed_files") or [],
+            "steps_by_name": {
+                key: value
+                for key, value in (result.code_navigation.get("steps_by_name") or {}).items()
+                if "\x00" not in key
+            },
+        }
+        output_files[nav_path] = json.dumps(payload, indent=2)
+        result.files = output_files
+        logs.append(f"Wrote step navigation metadata: {nav_path}")
 
     except ZipExtractionError as exc:
         logs.append(f"ERROR: {exc}")
