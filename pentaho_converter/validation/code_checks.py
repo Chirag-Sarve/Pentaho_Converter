@@ -7,7 +7,9 @@ import builtins as _builtins
 import re
 
 _PLACEHOLDER_PATTERNS = (
-    r"_placeholder",
+    # Empty-DF sentinel only — do not match step/var names like null_placeholder_df
+    r"createDataFrame\(\s*\[\s*\]\s*,\s*['\"]_placeholder",
+    r"['\"]_placeholder\s+STRING['\"]",
     r"placeholder STRING",
     r"lit\(None\)\s*#\s*",
     r"pass\s*#\s*",

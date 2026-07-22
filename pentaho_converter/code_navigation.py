@@ -144,7 +144,11 @@ def _resolve_issue_lines(
 
     if "placeholder" in lower:
         for offset, block_line in enumerate(block_lines):
-            if "_placeholder" in block_line or "placeholder STRING" in block_line:
+            if (
+                "placeholder STRING" in block_line
+                or "'_placeholder" in block_line
+                or '"_placeholder' in block_line
+            ):
                 line = start_line + offset
                 return line, line
 
@@ -226,9 +230,20 @@ def _compute_highlight_level(
 
 
 def _step_has_placeholder(block_lines: list[str], errors: list[str]) -> bool:
-    if any("placeholder" in err.lower() for err in errors):
+    if any(
+        "placeholder STRING" in err
+        or "createDataFrame([], '_placeholder" in err
+        or 'createDataFrame([], "_placeholder' in err
+        for err in errors
+    ):
         return True
-    return any("_placeholder" in line or "placeholder STRING" in line for line in block_lines)
+    # Match empty-DF sentinel only — not identifiers like null_placeholder_df
+    return any(
+        "placeholder STRING" in line
+        or "'_placeholder" in line
+        or '"_placeholder' in line
+        for line in block_lines
+    )
 
 
 def _step_todo_count(status: str, errors: list[str]) -> int:

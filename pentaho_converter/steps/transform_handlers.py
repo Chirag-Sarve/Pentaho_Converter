@@ -757,11 +757,42 @@ class StreamLookupHandler(BaseStepHandler):
                     )
                 else:
                     lines.append(f"_lkp_src_{out_var} = {lookup_df}")
+
+                # Pentaho Stream Lookup adds ONLY configured return values — never the
+                # full lookup row. Projecting keys + return sources (aliased) prevents
+                # Spark ambiguous-column failures when lookup shares names with the
+                # main stream (e.g. department on courses ⟕ teachers).
+                ret_names: list[str] = []
+                for rf in return_fields:
+                    if isinstance(rf, dict):
+                        n = rf.get("name") or ""
+                    else:
+                        n = getattr(rf, "name", "") or ""
+                    if n and n not in ret_names:
+                        ret_names.append(n)
+                proj_exprs: list[str] = []
+                seen_proj: set[str] = set()
+                for r in key_right:
+                    if r and r not in seen_proj:
+                        proj_exprs.append(f"col({r!r})")
+                        seen_proj.add(r)
+                for name in ret_names:
+                    if not name or name in seen_proj:
+                        # Key also returned: keep bare key col; materialize below.
+                        continue
+                    alias = f"__sl_{name}"
+                    proj_exprs.append(f"col({name!r}).alias({alias!r})")
+                    seen_proj.add(name)
+                if proj_exprs:
+                    lines.append(
+                        f"_lkp_src_{out_var} = _lkp_src_{out_var}.select("
+                        + ", ".join(proj_exprs)
+                        + ")"
+                    )
+
                 # Cache / broadcast
-                if cached or cache_size > 0:
-                    lines.append(f"_lkp_{out_var} = broadcast(_lkp_src_{out_var})")
-                else:
-                    lines.append(f"_lkp_{out_var} = broadcast(_lkp_src_{out_var})")
+                lines.append(f"_lkp_{out_var} = broadcast(_lkp_src_{out_var})")
+                if not (cached or cache_size > 0):
                     lines.append(
                         "# NOTE: Stream Lookup always broadcasts lookup side "
                         "(Pentaho in-memory cache equivalent)"
@@ -775,30 +806,31 @@ class StreamLookupHandler(BaseStepHandler):
                     lines.append(
                         f"{out_var} = {main_df}.join(_lkp_{out_var}, {on_arg}, 'left')"
                     )
-                # Select return fields (rename + defaults)
+                # Materialize return fields (rename + defaults) from aliased lookup cols
                 for rf in return_fields:
-                    if not isinstance(rf, dict):
-                        continue
-                    name = rf.get("name") or ""
-                    rename = rf.get("rename") or name
-                    default = rf.get("default")
+                    if isinstance(rf, dict):
+                        name = rf.get("name") or ""
+                        rename = rf.get("rename") or name
+                        default = rf.get("default")
+                    else:
+                        name = getattr(rf, "name", "") or ""
+                        rename = getattr(rf, "rename", None) or name
+                        default = getattr(rf, "default", None)
                     if not name:
                         continue
-                    if rename and rename != name:
-                        if default not in (None, ""):
-                            lines.append(
-                                f"{out_var} = {out_var}.withColumn("
-                                f"{rename!r}, coalesce(col({name!r}), lit({default!r}))).drop({name!r})"
-                            )
-                        else:
-                            lines.append(
-                                f"{out_var} = {out_var}.withColumnRenamed({name!r}, {rename!r})"
-                            )
-                    elif default not in (None, ""):
+                    src_col = name if name in key_right else f"__sl_{name}"
+                    if default not in (None, ""):
                         lines.append(
                             f"{out_var} = {out_var}.withColumn("
-                            f"{name!r}, coalesce(col({name!r}), lit({default!r})))"
+                            f"{rename!r}, coalesce(col({src_col!r}), lit({default!r})))"
                         )
+                    else:
+                        lines.append(
+                            f"{out_var} = {out_var}.withColumn("
+                            f"{rename!r}, col({src_col!r}))"
+                        )
+                    if src_col != rename:
+                        lines.append(f"{out_var} = {out_var}.drop({src_col!r})")
                 lines.append(
                     "# NOTE: duplicate matches keep all joined rows (left join); "
                     "dedupe lookup keys upstream if Pentaho ate extras"
