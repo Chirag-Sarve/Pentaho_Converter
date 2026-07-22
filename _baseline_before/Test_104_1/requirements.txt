@@ -1,0 +1,4 @@
+# Databricks Runtime already provides pyspark / delta-spark.
+# Pin only extras needed for local syntax checks or CI.
+pyspark>=3.4.0
+delta-spark>=2.4.0

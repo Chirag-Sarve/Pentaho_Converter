@@ -196,13 +196,73 @@ def _notebook_runner_cell(code: str) -> str:
     ])
 
 
+_ENGINE_IMPORT_SEED = '''\
+# Seed sys.path so ``engine.bootstrap`` imports work in Workspace notebooks
+# (cwd is often /databricks/driver; notebook dir is not auto-added to sys.path).
+import sys
+from pathlib import Path
+
+def _seed_engine_import() -> None:
+    import importlib.util
+    try:
+        if importlib.util.find_spec("engine.bootstrap") is not None:
+            return
+    except (ModuleNotFoundError, ValueError):
+        pass
+    anchors: list[Path] = []
+    try:
+        from pyspark.dbutils import DBUtils
+        from pyspark.sql import SparkSession
+        _spark = SparkSession.getActiveSession() or SparkSession.builder.getOrCreate()
+        _nb = (
+            DBUtils(_spark)
+            .notebook.entry_point.getDbutils()
+            .notebook()
+            .getContext()
+            .notebookPath()
+            .get()
+        )
+        if _nb:
+            raw = str(_nb).replace("\\\\", "/")
+            parent = Path(raw).parent
+            anchors.append(parent)
+            if raw.startswith("/Workspace/"):
+                anchors.append(Path(raw[len("/Workspace") :]).parent)
+            elif raw.startswith(("/Users/", "/Repos/", "/Shared/")):
+                anchors.append(Path("/Workspace" + raw).parent)
+    except Exception:
+        pass
+    try:
+        from pyspark.files import SparkFiles
+        _sf = Path(SparkFiles.getRootDirectory())
+        if _sf.exists():
+            anchors.append(_sf)
+    except Exception:
+        pass
+    anchors.append(Path.cwd())
+    for start in anchors:
+        cur = start
+        for _ in range(8):
+            if (cur / "engine" / "bootstrap.py").is_file() and (cur / "config.py").is_file():
+                if str(cur) not in sys.path:
+                    sys.path.insert(0, str(cur))
+                return
+            if cur.parent == cur:
+                break
+            cur = cur.parent
+
+_seed_engine_import()
+'''
+
+
 def to_notebook_source(code: str) -> str:
     """Convert a flat generated .py file into Databricks notebook source format.
 
     Notebook layout:
-      1. Imports / config (everything before the first ``def run_*``)
-      2. One cell per ``run_*`` transformation function (keeps ``return`` valid)
-      3. A runner cell that calls ``run_*(spark)`` using the platform session
+      1. Optional path seed (when Master_ETL uses ``engine.bootstrap``)
+      2. Imports / config (everything before the first ``def run_*``)
+      3. One cell per ``run_*`` transformation function (keeps ``return`` valid)
+      4. A runner cell that calls ``run_*(spark)`` using the platform session
 
     ``main()`` and ``if __name__`` are omitted from notebooks — they are for
     local ``python script.py`` execution only.
@@ -217,6 +277,10 @@ def to_notebook_source(code: str) -> str:
     notebook_body = code[: main_match.start()].rstrip() if main_match else code.rstrip()
 
     parts: list[str] = []
+    # Master_ETL no longer inlines path bootstrap; notebooks need a seed cell so
+    # ``from engine.bootstrap import initialize_project`` can resolve.
+    if "from engine.bootstrap import" in notebook_body:
+        parts.append(_ENGINE_IMPORT_SEED.strip())
     split_points = sorted(
         {0} | {m.start() for m in run_func_pattern.finditer(notebook_body)}
     )

@@ -8,6 +8,7 @@ Output layout::
     ├── requirements.txt
     ├── VALIDATION_REPORT.md
     ├── engine/                     # shared Pentaho hop / entry runtime
+    │   ├── bootstrap.py            # Master_ETL path / import initialization
     │   ├── runtime.py
     │   ├── handlers.py
     │   ├── job_runtime.py
@@ -1034,41 +1035,14 @@ if __name__ == "__main__":
                 '    raise RuntimeError("No jobs or transformations were generated.")'
             )
 
-        required_modules = ["jobs", "engine", "config"] + [mod for mod, _ in job_imports]
-        required_literal = ", ".join(repr(m) for m in required_modules)
-
-        verify_block = (
-            '''def _diagnose_imports() -> None:
-    """Print cwd / sys.path / project root / notebook path when imports fail."""
-    _nb = None
-    try:
-        _nb = _notebook_path()
-    except Exception:
-        _nb = None
-    print("IMPORT DIAGNOSTICS")
-    print("  cwd            =", Path.cwd())
-    print("  sys.path       =", list(sys.path))
-    print("  project root   =", _ROOT)
-    print("  notebook path  =", _nb)
-    print("  __file__       =", globals().get("__file__", "<undefined>"))
-
-
-def _require_modules(names: list[str]) -> None:
-    import importlib.util
-
-    missing = [n for n in names if importlib.util.find_spec(n) is None]
-    if not missing:
-        return
-    _diagnose_imports()
-    raise ModuleNotFoundError(
-        "Not importable (file may exist but project root is not on sys.path): "
-        + ", ".join(missing)
-    )
-
-
-_require_modules([__REQUIRED_MODULES__])
-'''.replace("__REQUIRED_MODULES__", required_literal)
-        )
+        # initialize_project always requires jobs/engine/config; pass job modules only.
+        primary_modules = [mod for mod, _ in job_imports]
+        if len(primary_modules) == 0:
+            init_call = "initialize_project()"
+        elif len(primary_modules) == 1:
+            init_call = f"initialize_project(primary_module={primary_modules[0]!r})"
+        else:
+            init_call = f"initialize_project(primary_module={primary_modules!r})"
 
         safe_import_lines: list[str] = []
         for mod, alias in job_imports:
@@ -1113,14 +1087,12 @@ Jobs: {job_list}
 from __future__ import annotations
 
 import logging
-import sys
-from pathlib import Path
 from typing import Any, Mapping
 
-# Ensure project root is importable in Databricks Workspace / Repos / Jobs
-{_project_root_bootstrap(1)}
+from engine.bootstrap import initialize_project
 
-{verify_block}
+_ROOT = {init_call}
+
 import config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
