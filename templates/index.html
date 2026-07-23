@@ -2253,6 +2253,45 @@
     .status-bar.visible { display: block; }
     .status-bar strong { color: var(--text); }
 
+    .deploy-toast {
+      position: fixed;
+      top: 72px;
+      right: 20px;
+      z-index: 12000;
+      min-width: 280px;
+      max-width: 420px;
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      background: #052e16;
+      border: 1px solid #166534;
+      color: #bbf7d0;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+      font-size: 0.86rem;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translateY(-8px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      white-space: pre-line;
+    }
+    .deploy-toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .deploy-toast strong {
+      display: block;
+      color: #dcfce7;
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+    }
+    #generated-tree-root.deploy-highlight > .tree-folder-header {
+      background: rgba(34, 197, 94, 0.16);
+      outline: 1px solid rgba(34, 197, 94, 0.45);
+      border-radius: 6px;
+      transition: background 0.25s ease, outline-color 0.25s ease;
+    }
+
     .progress-bar-wrap {
       display: none;
       padding: 0.5rem 1rem;
@@ -3800,6 +3839,9 @@
   </div>
 </div>
 
+<!-- Deploy success toast -->
+<div class="deploy-toast" id="deploy-toast" role="status" aria-live="polite"></div>
+
 <!-- Deploy: connection required -->
 <div class="modal-overlay" id="deploy-connect-modal">
   <div class="modal" style="max-width:420px;">
@@ -4237,10 +4279,11 @@
         settingsMsg.textContent = formatDeploySuccessMessage(r);
         settingsMsg.style.whiteSpace = 'pre-wrap';
         setConnPill('ok', 'CONNECTED');
+        const uploadedCount = r.uploaded_count || totalFiles;
         if (typeof setProgress === 'function') {
-          setProgress(100, 'Deployment completed — ' + (r.uploaded_count || totalFiles) + ' file(s) uploaded');
-          setStatus('Deployment completed successfully', 'success');
+          setProgress(100, 'Deployment completed — ' + uploadedCount + ' file(s) uploaded');
         }
+        finishSuccessfulDeploy(uploadedCount);
       } else {
         let msg = r.message || 'Deploy failed.';
         if (r.failed_count || r.uploaded_count) {
@@ -4256,16 +4299,67 @@
           setProgress(100, 'Deployment finished with errors');
           setStatus('Deployment failed', 'error');
         }
+        if (typeof hideProgress === 'function') hideProgress();
       }
     } catch (e) {
       clearInterval(progressTimer);
       settingsMsg.className = 'settings-msg err';
       settingsMsg.textContent = 'Network error: ' + e.message;
       if (typeof setStatus === 'function') setStatus('Deployment failed', 'error');
+      if (typeof hideProgress === 'function') hideProgress();
     } finally {
       updateDeployButtonState();
     }
   });
+
+  function showDeploySuccessToast(uploadedCount) {
+    const toast = document.getElementById('deploy-toast');
+    if (!toast) return;
+    toast.innerHTML = '<strong>✓ Deployment completed successfully.</strong>'
+      + (uploadedCount || 0) + ' file(s) uploaded.';
+    toast.classList.add('visible');
+    if (toast._hideTimer) clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => toast.classList.remove('visible'), 5000);
+  }
+
+  function focusDeployedProjectInWorkspace() {
+    // Ensure explorer + Generated PySpark section are visible and expanded.
+    setExplorerCollapsed(false);
+    saveExplorerUiState({ generatedExpanded: true });
+    applyExplorerSectionState();
+    generatedTreeExpanded['__root__'] = true;
+    // Expand all known nested folders so the deployed package is browsable.
+    Object.keys(generatedFiles || {}).forEach(path => {
+      const parts = String(path).replace(/\\/g, '/').split('/').filter(Boolean);
+      for (let i = 1; i < parts.length; i++) {
+        generatedTreeExpanded[parts.slice(0, i).join('/')] = true;
+      }
+    });
+    renderGeneratedTree(generatedFiles, activeFile);
+    const root = document.getElementById('generated-tree-root');
+    if (root) {
+      root.classList.remove('collapsed');
+      root.classList.add('deploy-highlight');
+      setTimeout(() => root.classList.remove('deploy-highlight'), 2200);
+      try { root.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { /* ignore */ }
+    }
+    if (activeFile && generatedFiles[activeFile]) {
+      ensureGeneratedPreviewVisible(activeFile);
+    } else if (Object.keys(generatedFiles || {}).length) {
+      ensureGeneratedPreviewVisible(Object.keys(generatedFiles).sort()[0]);
+    }
+  }
+
+  function finishSuccessfulDeploy(uploadedCount) {
+    if (typeof hideProgress === 'function') hideProgress();
+    const modal = document.getElementById('settings-modal');
+    if (modal) modal.classList.remove('visible');
+    navigateTo('upload');
+    setCenterMode('workspace');
+    focusDeployedProjectInWorkspace();
+    showDeploySuccessToast(uploadedCount);
+    setStatus('Deployment completed successfully — ' + uploadedCount + ' file(s) uploaded', 'success');
+  }
 
   [setHost, setToken, setCatalog, setSchema, setDataDir, setCluster, setNbDir, setStorage, setContainer, setPrefix, setFormat].forEach(el => {
     if (!el) return;

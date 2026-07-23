@@ -60,9 +60,15 @@ def log_step_dataframe(
     transformation: str | None = None,
     func_name: str | None = None,
 ) -> None:
-    """Log step name, schema, and row count before/after a generated step."""
+    """Log step name, schema, and row count before/after a generated step.
+
+    Emitted at DEBUG so production (LOG_LEVEL=INFO) stays quiet. Skips the
+    expensive ``df.count()`` when DEBUG is disabled.
+    """
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
     info = describe_dataframe(df)
-    logger.info(
+    logger.debug(
         "STEP %s | transformation=%s | step=%s | func=%s | rows=%s | schema=%s | columns=%s",
         phase.upper(),
         transformation or "?",

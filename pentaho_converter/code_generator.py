@@ -144,7 +144,7 @@ class PySparkCodeGenerator:
                 "",
                 "import config",
                 "",
-                "logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')",
+                "config.configure_logging()",
                 f"TRANSFORMATION_NAME = {transformation.name!r}",
                 f"SOURCE_KTR = {transformation.file_path.name!r}",
                 "",
@@ -595,7 +595,7 @@ class PySparkCodeGenerator:
 
             lines.append(f"# Step {step_number} : {step.name}")
             lines.append(f"def {step_fn}({signature}):")
-            lines.append(f'    logging.info("Running {step.step_type}: {step.name}")')
+            lines.append(f'    logging.debug("Running {step.step_type}: {step.name}")')
             if pred_dfs:
                 primary_in = pred_dfs[0]
                 lines.append(

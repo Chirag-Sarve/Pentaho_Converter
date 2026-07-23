@@ -319,9 +319,9 @@ def handle_special(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
                 schedule_type,
                 scheduled,
             )
-        logging.info("ENTRY START | name=%s | job=%s", entry.name, runtime.name)
+        logging.debug("ENTRY START | name=%s | job=%s", entry.name, runtime.name)
     else:
-        logging.info("ENTRY DUMMY | name=%s | pass-through", entry.name)
+        logging.debug("ENTRY DUMMY | name=%s | pass-through", entry.name)
     return EntryResult(name=entry.name, success=True, result=kind)
 
 
@@ -392,7 +392,7 @@ def handle_ping(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         pingtype=uops.attr(attrs, "pingtype", default="systemPing"),
     )
     uops.iter_warning_logs(f"ENTRY PING | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY PING | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY PING | name=%s | %s", entry.name, outcome.message)
     if outcome.success:
         return EntryResult(name=entry.name, success=True, result=outcome.extra)
     return EntryResult(
@@ -409,7 +409,7 @@ def handle_telnet(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         timeout_ms=_resolve(uops.attr(attrs, "timeout", default="3000"), runtime),
     )
     uops.iter_warning_logs(f"ENTRY TELNET | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY TELNET | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY TELNET | name=%s | %s", entry.name, outcome.message)
     if outcome.success:
         return EntryResult(name=entry.name, success=True, result=outcome.extra)
     return EntryResult(
@@ -431,7 +431,7 @@ def handle_syslog(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         add_hostname=uops.attr_yn(attrs, "addHostname", "addhostname", default=True),
     )
     uops.iter_warning_logs(f"ENTRY SYSLOG | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY SYSLOG | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY SYSLOG | name=%s | %s", entry.name, outcome.message)
     if outcome.success:
         return EntryResult(name=entry.name, success=True, result=outcome.extra)
     return EntryResult(
@@ -467,7 +467,7 @@ def handle_send_nagios_passive_check(runtime: JobRuntime, entry: JobEntry) -> En
     uops.iter_warning_logs(
         f"ENTRY SEND_NAGIOS_PASSIVE_CHECK | name={entry.name}", outcome.warnings
     )
-    logging.info(
+    logging.debug(
         "ENTRY SEND_NAGIOS_PASSIVE_CHECK | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success:
@@ -494,7 +494,7 @@ def handle_snmp_trap(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         engineid=_resolve(uops.attr(attrs, "engineid"), runtime),
     )
     uops.iter_warning_logs(f"ENTRY SNMP_TRAP | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY SNMP_TRAP | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY SNMP_TRAP | name=%s | %s", entry.name, outcome.message)
     if outcome.success:
         return EntryResult(name=entry.name, success=True, result=outcome.extra)
     return EntryResult(
@@ -533,7 +533,7 @@ def handle_truncate_tables(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         catalog=_catalog_from_runtime(runtime),
     )
     uops.iter_warning_logs(f"ENTRY TRUNCATE_TABLES | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY TRUNCATE_TABLES | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY TRUNCATE_TABLES | name=%s | %s", entry.name, outcome.message)
     if outcome.success:
         return EntryResult(name=entry.name, success=True, result=outcome.extra)
     return EntryResult(
@@ -552,7 +552,7 @@ def handle_hl7_mllp_input(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         version_variable=_resolve(uops.attr(attrs, "version_variable"), runtime),
     )
     uops.iter_warning_logs(f"ENTRY HL7MLLPInput | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY HL7MLLPInput | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY HL7MLLPInput | name=%s | %s", entry.name, outcome.message)
     for key, value in (outcome.extra.get("variables") or {}).items():
         if key:
             runtime.variables[key] = value
@@ -579,7 +579,7 @@ def handle_hl7_mllp_acknowledge(runtime: JobRuntime, entry: JobEntry) -> EntryRe
     uops.iter_warning_logs(
         f"ENTRY HL7MLLPAcknowledge | name={entry.name}", outcome.warnings
     )
-    logging.info(
+    logging.debug(
         "ENTRY HL7MLLPAcknowledge | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success:
@@ -622,7 +622,7 @@ def handle_connected_to_repository(runtime: JobRuntime, entry: JobEntry) -> Entr
     rops.iter_warning_logs(
         f"ENTRY CONNECTED_TO_REPOSITORY | name={entry.name}", outcome.warnings
     )
-    logging.info(
+    logging.debug(
         "ENTRY CONNECTED_TO_REPOSITORY | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success:
@@ -674,7 +674,7 @@ def handle_export_repository(runtime: JobRuntime, entry: JobEntry) -> EntryResul
     rops.iter_warning_logs(
         f"ENTRY EXPORT_REPOSITORY | name={entry.name}", outcome.warnings
     )
-    logging.info(
+    logging.debug(
         "ENTRY EXPORT_REPOSITORY | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success and rops.attr_yn(attrs, "add_result_filesname") and outcome.paths:
@@ -696,7 +696,7 @@ def _transfer_result(
     add_paths: bool = True,
 ) -> EntryResult:
     tops.iter_warning_logs(f"ENTRY {label} | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY %s | name=%s | %s", label, entry.name, outcome.message)
+    logging.debug("ENTRY %s | name=%s | %s", label, entry.name, outcome.message)
     if outcome.success and add_paths and outcome.paths:
         for p in outcome.paths:
             fops.add_result_file(runtime, p)
@@ -1048,7 +1048,7 @@ def handle_pgp_encrypt_files(runtime: JobRuntime, entry: JobEntry) -> EntryResul
             entry.name,
         )
     pops.iter_warning_logs(f"ENTRY PGP_ENCRYPT_FILES | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY PGP_ENCRYPT_FILES | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success and pops.attr_yn(attrs, "add_result_filesname"):
@@ -1114,7 +1114,7 @@ def handle_pgp_decrypt_files(runtime: JobRuntime, entry: JobEntry) -> EntryResul
         ),
     )
     pops.iter_warning_logs(f"ENTRY PGP_DECRYPT_FILES | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY PGP_DECRYPT_FILES | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success and pops.attr_yn(attrs, "add_result_filesname"):
@@ -1158,7 +1158,7 @@ def handle_pgp_verify_files(runtime: JobRuntime, entry: JobEntry) -> EntryResult
         ),
     )
     pops.iter_warning_logs(f"ENTRY PGP_VERIFY_FILES | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY PGP_VERIFY_FILES | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success:
@@ -1240,7 +1240,7 @@ def handle_set_variables(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         logging.error("ENTRY SET_VARIABLES FAIL | name=%s | %s", entry.name, exc)
         return EntryResult(name=entry.name, success=False, error=exc)
 
-    logging.info(
+    logging.debug(
         "ENTRY SET_VARIABLES | name=%s | applied=%s | scopes=%s",
         entry.name,
         applied,
@@ -1296,7 +1296,7 @@ def handle_shell(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         timeout=timeout,
     )
     sops.iter_warning_logs(f"ENTRY SHELL | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY SHELL | name=%s | success=%s | exit=%s | %s",
         entry.name,
         outcome.success,
@@ -1362,7 +1362,7 @@ def handle_sql(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
     )
     outcome.warnings = list(load_warnings) + list(outcome.warnings)
     sops.iter_warning_logs(f"ENTRY SQL | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY SQL | name=%s | connection=%s | stmts=%s | success=%s | %s",
         entry.name,
         connection,
@@ -1394,7 +1394,7 @@ def handle_eval(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
             entry.name,
             script_r,
         )
-    logging.info(
+    logging.debug(
         "ENTRY EVAL | name=%s | success=%s | %s",
         entry.name,
         outcome.success,
@@ -1444,7 +1444,7 @@ def handle_create_folder(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
                 exc2,
             )
             return EntryResult(name=entry.name, success=True, result=str(folder))
-    logging.info("ENTRY CREATE_FOLDER | name=%s | folder=%s", entry.name, folder)
+    logging.debug("ENTRY CREATE_FOLDER | name=%s | folder=%s", entry.name, folder)
     return EntryResult(name=entry.name, success=True, result=str(folder))
 
 
@@ -1454,7 +1454,7 @@ def handle_file_exists(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         runtime,
     )
     exists = _fs_exists(filename)
-    logging.info(
+    logging.debug(
         "ENTRY FILE_EXISTS | name=%s | file=%s | exists=%s",
         entry.name,
         filename,
@@ -1481,7 +1481,7 @@ def handle_wait_for_file(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
     file_size_check = fops.attr_yn(attrs, "fileSizeCheck", "file_size_check")
     add_to_result = fops.attr_yn(attrs, "addFilenameResult", "add_filename_result")
 
-    logging.info(
+    logging.debug(
         "ENTRY WAIT_FOR_FILE | name=%s | file=%s | timeout=%ss | cycle=%ss | "
         "successOnTimeout=%s",
         entry.name,
@@ -1549,7 +1549,7 @@ def handle_simple_eval(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         var_is_set=var_is_set,
     )
     cops.iter_warning_logs(f"ENTRY SIMPLE_EVAL | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY SIMPLE_EVAL | name=%s | left=%r | → %s | %s",
         entry.name,
         left,
@@ -1573,7 +1573,7 @@ def handle_delay(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
     )
     scale = cops.attr(attrs, "scaletime", default="0")
     seconds = cops.delay_seconds(timeout, scale)
-    logging.info("ENTRY DELAY | name=%s | sleep=%ss", entry.name, seconds)
+    logging.debug("ENTRY DELAY | name=%s | sleep=%ss", entry.name, seconds)
     time.sleep(seconds)
     return EntryResult(name=entry.name, success=True, result=seconds)
 
@@ -1588,7 +1588,7 @@ def handle_folder_is_empty(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         specify_wildcard=cops.attr_yn(attrs, "specify_wildcard"),
     )
     cops.iter_warning_logs(f"ENTRY FOLDER_IS_EMPTY | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY FOLDER_IS_EMPTY | name=%s | folder=%s | empty=%s",
         entry.name,
         folder,
@@ -1611,7 +1611,7 @@ def handle_files_exist(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
             if name:
                 paths.append(_data_path(name, runtime))
     outcome = cops.files_exist(paths, exists_fn=_fs_exists)
-    logging.info(
+    logging.debug(
         "ENTRY FILES_EXIST | name=%s | paths=%s | ok=%s",
         entry.name,
         len(paths),
@@ -1652,7 +1652,7 @@ def handle_check_files_locked(runtime: JobRuntime, entry: JobEntry) -> EntryResu
     cops.iter_warning_logs(
         f"ENTRY CHECK_FILES_LOCKED | name={entry.name}", outcome.warnings
     )
-    logging.info(
+    logging.debug(
         "ENTRY CHECK_FILES_LOCKED | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success:
@@ -1675,7 +1675,7 @@ def handle_webservice_available(runtime: JobRuntime, entry: JobEntry) -> EntryRe
     outcome = cops.webservice_available(
         url, connect_timeout=connect_to, read_timeout=read_to
     )
-    logging.info(
+    logging.debug(
         "ENTRY WEBSERVICE_AVAILABLE | name=%s | url=%s | ok=%s",
         entry.name,
         url,
@@ -1721,7 +1721,7 @@ def handle_eval_files_metrics(runtime: JobRuntime, entry: JobEntry) -> EntryResu
         wildcard=_resolve(cops.attr(attrs, "wildcard"), runtime),
     )
     cops.iter_warning_logs(f"ENTRY EVAL_FILES_METRICS | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY EVAL_FILES_METRICS | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success:
@@ -1755,7 +1755,7 @@ def handle_table_exists(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         connection_meta=conn_meta,
     )
     cops.iter_warning_logs(f"ENTRY TABLE_EXISTS | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY TABLE_EXISTS | name=%s | table=%s.%s | exists=%s",
         entry.name,
         schema,
@@ -1784,7 +1784,7 @@ def handle_columns_exist(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         spark=getattr(runtime, "spark", None),
         catalog=_catalog_from_runtime(runtime),
     )
-    logging.info(
+    logging.debug(
         "ENTRY COLUMNS_EXIST | name=%s | table=%s | cols=%s | ok=%s",
         entry.name,
         table,
@@ -1819,7 +1819,7 @@ def handle_eval_table_content(runtime: JobRuntime, entry: JobEntry) -> EntryResu
     if cops.attr_yn(attrs, "add_rows_result"):
         outcome.warnings.append("add_rows_result=Y is unsupported — rows not added to result")
     cops.iter_warning_logs(f"ENTRY EVAL_TABLE_CONTENT | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY EVAL_TABLE_CONTENT | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success:
@@ -1858,7 +1858,7 @@ def handle_wait_for_sql(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         catalog=_catalog_from_runtime(runtime),
     )
     cops.iter_warning_logs(f"ENTRY WAIT_FOR_SQL | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY WAIT_FOR_SQL | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY WAIT_FOR_SQL | name=%s | %s", entry.name, outcome.message)
     if outcome.success:
         return EntryResult(name=entry.name, success=True, result=outcome.extra)
     return EntryResult(
@@ -1896,7 +1896,7 @@ def handle_check_db_connections(runtime: JobRuntime, entry: JobEntry) -> EntryRe
     cops.iter_warning_logs(
         f"ENTRY CHECK_DB_CONNECTIONS | name={entry.name}", outcome.warnings
     )
-    logging.info(
+    logging.debug(
         "ENTRY CHECK_DB_CONNECTIONS | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success:
@@ -1934,7 +1934,7 @@ def handle_mysql_bulk_file(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         spark=getattr(runtime, "spark", None),
     )
     bops.iter_warning_logs(f"ENTRY MYSQL_BULK_FILE | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY MYSQL_BULK_FILE | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success and bops.attr_yn(attrs, "addfiletoresult") and outcome.paths:
@@ -1977,7 +1977,7 @@ def handle_mysql_bulk_load(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         spark=getattr(runtime, "spark", None),
     )
     bops.iter_warning_logs(f"ENTRY MYSQL_BULK_LOAD | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY MYSQL_BULK_LOAD | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success and bops.attr_yn(attrs, "addfiletoresult") and outcome.paths:
@@ -2033,7 +2033,7 @@ def handle_mssql_bulk_load(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         spark=getattr(runtime, "spark", None),
     )
     bops.iter_warning_logs(f"ENTRY MSSQL_BULK_LOAD | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY MSSQL_BULK_LOAD | name=%s | %s", entry.name, outcome.message
     )
     if outcome.success and bops.attr_yn(attrs, "addfiletoresult") and outcome.paths:
@@ -2087,7 +2087,7 @@ def handle_xml_well_formed(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
     xops.iter_warning_logs(f"ENTRY XML_WELL_FORMED | name={entry.name}", outcome.warnings)
     for err in outcome.errors:
         logging.error("ENTRY XML_WELL_FORMED | name=%s | %s", entry.name, err)
-    logging.info(
+    logging.debug(
         "ENTRY XML_WELL_FORMED | name=%s | %s", entry.name, outcome.message
     )
     for p in outcome.paths:
@@ -2119,7 +2119,7 @@ def handle_dtd_validator(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
     xops.iter_warning_logs(f"ENTRY DTD_VALIDATOR | name={entry.name}", outcome.warnings)
     for err in outcome.errors:
         logging.error("ENTRY DTD_VALIDATOR | name=%s | %s", entry.name, err)
-    logging.info("ENTRY DTD_VALIDATOR | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY DTD_VALIDATOR | name=%s | %s", entry.name, outcome.message)
     if outcome.success:
         return EntryResult(
             name=entry.name, success=True, result={"paths": outcome.paths}
@@ -2145,7 +2145,7 @@ def handle_xsd_validator(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
     xops.iter_warning_logs(f"ENTRY XSD_VALIDATOR | name={entry.name}", outcome.warnings)
     for err in outcome.errors:
         logging.error("ENTRY XSD_VALIDATOR | name=%s | %s", entry.name, err)
-    logging.info("ENTRY XSD_VALIDATOR | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY XSD_VALIDATOR | name=%s | %s", entry.name, outcome.message)
     if outcome.success:
         return EntryResult(
             name=entry.name, success=True, result={"paths": outcome.paths}
@@ -2206,7 +2206,7 @@ def handle_xslt(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
     )
     outcome.warnings = list(outcome.warnings) + warnings
     xops.iter_warning_logs(f"ENTRY XSLT | name={entry.name}", outcome.warnings)
-    logging.info("ENTRY XSLT | name=%s | %s", entry.name, outcome.message)
+    logging.debug("ENTRY XSLT | name=%s | %s", entry.name, outcome.message)
     if outcome.success and xops.attr_yn(attrs, "addfiletoresult") and outcome.paths:
         for p in outcome.paths:
             fops.add_result_file(runtime, p)
@@ -2298,7 +2298,7 @@ def handle_mail(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
 
         send_result = send_smtp_mail(cfg)
         iter_warning_logs(f"ENTRY MAIL | name={entry.name}", send_result.warnings)
-        logging.info(
+        logging.debug(
             "ENTRY MAIL | name=%s | sent=True | to=%s | subject=%s | server=%s:%s",
             entry.name,
             ", ".join(send_result.recipients),
@@ -2334,7 +2334,7 @@ def handle_get_pop(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
     try:
         result = get_mails(cfg)
         iter_warning_logs(f"ENTRY GET_POP | name={entry.name}", result.warnings)
-        logging.info(
+        logging.debug(
             "ENTRY GET_POP | name=%s | protocol=%s | retrieved=%s | deleted=%s | out=%s",
             entry.name,
             cfg.protocol,
@@ -2388,7 +2388,7 @@ def handle_mail_validator(runtime: JobRuntime, entry: JobEntry) -> EntryResult:
         timeout=timeout,
     )
     iter_warning_logs(f"ENTRY MAIL_VALIDATOR | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY MAIL_VALIDATOR | name=%s | address=%s | valid=%s",
         entry.name,
         outcome.address or address,
@@ -2419,7 +2419,7 @@ def _outcome_result(
     log_label: str,
 ) -> EntryResult:
     fops.iter_warning_logs(f"ENTRY {log_label} | name={entry.name}", outcome.warnings)
-    logging.info(
+    logging.debug(
         "ENTRY %s | name=%s | success=%s | %s",
         log_label,
         entry.name,

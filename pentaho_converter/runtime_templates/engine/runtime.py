@@ -60,6 +60,8 @@ def execute_job(
     import config as _cfg_mod
 
     cfg = _cfg_mod.merge_config(dict(config_overrides or {}))
+    if hasattr(_cfg_mod, "configure_logging"):
+        _cfg_mod.configure_logging(cfg)
     if spark is not None:
         _cfg_mod.apply_spark_runtime_hints(spark, cfg)
         if hasattr(_cfg_mod, "ensure_data_dir"):

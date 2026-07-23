@@ -499,6 +499,9 @@ TARGET_SCHEMA = {schema!r}
 # Spark-readable/writable data root (UC Volume recommended on Free Edition)
 PENTAHO_DATA_DIR = {data_dir!r}
 
+# Runtime logging verbosity: INFO (production) or DEBUG (detailed diagnostics)
+LOG_LEVEL = "INFO"
+
 # Optional JDBC / secret-backed connection placeholders (override via widgets / job params)
 JDBC_URL = ""
 JDBC_USER = ""
@@ -508,8 +511,32 @@ DEFAULT_CONFIG: dict[str, Any] = {{
     "TARGET_CATALOG": TARGET_CATALOG,
     "TARGET_SCHEMA": TARGET_SCHEMA,
     "PENTAHO_DATA_DIR": PENTAHO_DATA_DIR,
+    "LOG_LEVEL": LOG_LEVEL,
     "spark_aqe": True,
 }}
+
+
+def configure_logging(cfg: Mapping[str, Any] | None = None) -> int:
+    """Configure root logging from ``LOG_LEVEL`` (default INFO).
+
+    Supported values: INFO, DEBUG. Unknown values fall back to INFO.
+    """
+    raw = (cfg or {{}}).get("LOG_LEVEL", LOG_LEVEL) if cfg is not None else LOG_LEVEL
+    level_name = str(raw or LOG_LEVEL or "INFO").upper()
+    if level_name not in {{"INFO", "DEBUG"}}:
+        level_name = "INFO"
+    level = getattr(logging, level_name, logging.INFO)
+    root = logging.getLogger()
+    if not root.handlers:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s %(levelname)s %(message)s",
+        )
+    else:
+        root.setLevel(level)
+        for handler in root.handlers:
+            handler.setLevel(level)
+    return level
 
 
 def merge_config(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -593,7 +620,7 @@ def ensure_data_dir(spark: Any = None, cfg: Mapping[str, Any] | None = None) -> 
                     spark.sql(
                         f"CREATE VOLUME IF NOT EXISTS `{{catalog}}`.`{{schema}}`.`{{volume}}`"
                     )
-                    logging.info(
+                    logging.debug(
                         "Ensured UC volume %s.%s.%s for data dir %s",
                         catalog,
                         schema,
@@ -867,7 +894,7 @@ from typing import Any, Mapping
 import config
 from engine.df_guards import log_step_dataframe, require_dataframe
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+config.configure_logging()
 
 TARGET_CATALOG = config.TARGET_CATALOG
 TARGET_SCHEMA = config.TARGET_SCHEMA
@@ -988,7 +1015,7 @@ import config
 from engine.runtime import execute_registered_job
 from engine.df_guards import log_step_dataframe, require_dataframe
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+config.configure_logging()
 logger = logging.getLogger({stem!r})
 
 TARGET_CATALOG = config.TARGET_CATALOG
@@ -1128,7 +1155,7 @@ _ROOT = {init_call}
 
 import config
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+config.configure_logging()
 logger = logging.getLogger("Master_ETL")
 
 {import_block}
@@ -1139,6 +1166,7 @@ def run(spark: Any = None, config: Mapping[str, Any] | None = None) -> Any:
     import config as _cfg_mod
 
     cfg = _cfg_mod.merge_config(dict(config or {{}}))
+    _cfg_mod.configure_logging(cfg)
     if spark is not None:
         _cfg_mod.apply_spark_runtime_hints(spark, cfg)
     logging.info("Master_ETL start | package=%s | primary=%s", {root!r}, {primary_name!r})

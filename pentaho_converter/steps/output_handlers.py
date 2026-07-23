@@ -408,7 +408,7 @@ class TextFileOutputHandler(BaseStepHandler):
         )
         lines.append("        _tfo_listing = _tfo_dbu.fs.ls(_tfo_parent)")
         lines.append(
-            "        logging.info('Text File Output parent listing (%s entries): %s', "
+            "        logging.debug('Text File Output parent listing (%s entries): %s', "
             "len(_tfo_listing), [x.path for x in _tfo_listing[:8]])"
         )
         lines.append("except Exception as _tfo_list_exc:")
