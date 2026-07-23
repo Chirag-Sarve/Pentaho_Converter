@@ -523,22 +523,55 @@ def merge_config(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
 def resolve_data_path(path: str, cfg: Mapping[str, Any] | None = None) -> str:
     """Resolve a Pentaho-relative or absolute path against PENTAHO_DATA_DIR.
 
-    Matches Text File Output remapping: local absolute paths such as
-    ``/output/high_value_customers.csv`` become
-    ``{{PENTAHO_DATA_DIR}}/high_value_customers.csv`` so job FILE_EXISTS
-    checks look at the same place Spark wrote.
+    Matches Text File Output remapping: paths under ``output/`` / ``rejects/`` /
+    ``logs/`` / ``archive/`` keep that parent folder so CREATE_FOLDER (OUTPUT_PATH)
+    and Text File Output deliverables resolve to the same location. Other local
+    paths collapse to ``{{PENTAHO_DATA_DIR}}/<basename>``.
     """
     cfg = cfg or {{}}
     base = str(cfg.get("PENTAHO_DATA_DIR") or PENTAHO_DATA_DIR).rstrip("/")
     text = (path or "").strip().replace("\\\\", "/")
     if not text:
         return base
-    if text.startswith(("dbfs:", "s3://", "abfss://", "wasbs://", "/Volumes/", "file:")):
+
+    def _collapse(segments: list[str]) -> list[str]:
+        out: list[str] = []
+        for seg in segments:
+            if not seg or seg == ".":
+                continue
+            if seg == "..":
+                if out:
+                    out.pop()
+                continue
+            out.append(seg)
+        return out
+
+    if text.startswith(("dbfs:", "s3://", "abfss://", "wasbs://", "file:")):
         return text
+    if text.startswith("/Volumes/"):
+        parts = _collapse([p for p in text.split("/")])
+        return "/" + "/".join(parts) if parts else text
     if text.startswith("/data/") or text == "/data":
         return base + text[len("/data") :]
-    # Local absolute (/output/...) or relative → basename under data dir
-    name = text.rstrip("/").rsplit("/", 1)[-1]
+    preserved = {{
+        "output", "outputs", "rejects", "reject", "logs", "log",
+        "archive", "archives", "staging", "export", "exports",
+    }}
+    cleaned = text
+    for token in (
+        "${{Internal.Transformation.Filename.Directory}}",
+        "${{Internal.Job.Filename.Directory}}",
+        "${{Internal.Entry.Current.Directory}}",
+    ):
+        cleaned = cleaned.replace(token, "")
+    while "//" in cleaned:
+        cleaned = cleaned.replace("//", "/")
+    parts = _collapse([p for p in cleaned.split("/")])
+    if not parts:
+        return base
+    name = parts[-1]
+    if len(parts) >= 2 and parts[-2].lower() in preserved:
+        return f"{{base}}/{{parts[-2]}}/{{name}}"
     return f"{{base}}/{{name}}"
 
 

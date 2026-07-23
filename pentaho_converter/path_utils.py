@@ -22,6 +22,25 @@ _CLOUD_OR_VOLUME_PREFIXES = (
     "gs://",
 )
 
+# Job/transformation folders that must stay aligned with SET_VARIABLES /
+# CREATE_FOLDER (e.g. OUTPUT_PATH → …/output) so Text File Output deliverables
+# land where the job advertises them — not only at the data-dir root.
+_PRESERVED_PARENT_DIRS = frozenset(
+    {
+        "output",
+        "outputs",
+        "rejects",
+        "reject",
+        "logs",
+        "log",
+        "archive",
+        "archives",
+        "staging",
+        "export",
+        "exports",
+    }
+)
+
 
 def _basename_from_pentaho_path(raw_path: str) -> str:
     text = (raw_path or "").strip().replace("\\", "/")
@@ -30,6 +49,30 @@ def _basename_from_pentaho_path(raw_path: str) -> str:
     if "/" in text:
         return text.rsplit("/", 1)[-1]
     return text
+
+
+def _portable_relative_path(raw_path: str) -> str:
+    """Map a Pentaho local/variable path to a portable relative path under data dir.
+
+    Preserves a single significant parent folder (``output``, ``rejects``, …) when
+    present so CREATE_FOLDER / OUTPUT_PATH and Text File Output agree. Other
+    hierarchy (``../``, ``Retail_Dataset``, deep trees) collapses to the basename
+    so flat volume layouts keep working for inputs.
+    """
+    text = (raw_path or "").strip().replace("\\", "/")
+    if not text:
+        return ""
+    # Drop unresolved ${…} placeholders left after optional substitution.
+    cleaned = re.sub(r"\$\{[^}]+\}", "", text).replace("\\", "/")
+    while "//" in cleaned:
+        cleaned = cleaned.replace("//", "/")
+    parts = [p for p in cleaned.split("/") if p and p != "." and p != ".."]
+    if not parts:
+        return ""
+    basename = parts[-1]
+    if len(parts) >= 2 and parts[-2].lower() in _PRESERVED_PARENT_DIRS:
+        return f"{parts[-2]}/{basename}"
+    return basename
 
 
 def uses_pentaho_directory_variable(raw_path: str) -> bool:
@@ -66,17 +109,21 @@ def spark_load_path_expr(raw_path: str) -> str:
     if not text:
         return "''"
     if uses_pentaho_directory_variable(text) or is_local_machine_path(text):
-        cleaned = re.sub(r"\$\{[^}]+\}", "", text)
-        filename = _basename_from_pentaho_path(cleaned) or "<input_file>"
+        filename = _portable_relative_path(text) or "<input_file>"
         return f"f'{{PENTAHO_DATA_DIR}}/{filename}'"
-    return repr(text)
+    if _is_cloud_or_volume_path(text.replace("\\", "/")):
+        return repr(text.replace("\\", "/"))
+    # Absolute POSIX / relative: same portable remapping as variable paths.
+    filename = _portable_relative_path(text) or _basename_from_pentaho_path(text) or "<input_file>"
+    return f"f'{{PENTAHO_DATA_DIR}}/{filename}'"
 
 
 def spark_save_path_expr(raw_path: str, *, placeholder: str = "<output_name>") -> str:
     """Return a Python expression for output ``.save(...)`` / ``.json(...)`` paths.
 
     Never emits Windows local paths. Prefer ``f'{PENTAHO_DATA_DIR}/<name>'`` while
-    preserving the original basename when available. Cloud/Volumes URIs are unchanged.
+    preserving significant parents (``output/…``) and the basename. Cloud/Volumes
+    URIs are unchanged.
     """
     text = (raw_path or "").strip()
     if not text:
@@ -86,13 +133,11 @@ def spark_save_path_expr(raw_path: str, *, placeholder: str = "<output_name>") -
         return repr(text.replace("\\", "/"))
 
     if uses_pentaho_directory_variable(text) or is_local_machine_path(text):
-        cleaned = re.sub(r"\$\{[^}]+\}", "", text)
-        filename = _basename_from_pentaho_path(cleaned) or placeholder
+        filename = _portable_relative_path(text) or placeholder
         return f"f'{{PENTAHO_DATA_DIR}}/{filename}'"
 
-    # Absolute POSIX or relative paths: keep basename under PENTAHO_DATA_DIR for
-    # Databricks portability (never invent folder hierarchy).
-    filename = _basename_from_pentaho_path(text) or placeholder
+    # Absolute POSIX or relative paths: portable remapping (may keep output/).
+    filename = _portable_relative_path(text) or placeholder
     return f"f'{{PENTAHO_DATA_DIR}}/{filename}'"
 
 

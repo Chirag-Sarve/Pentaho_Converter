@@ -68,7 +68,18 @@ class JobExecutionPlan:
 
     def _build_order(self) -> None:
         entries_by_name = {e.name: e for e in self.job.entries}
-        hops = [h for h in self.job.hops if h.enabled]
+        # Only success / unconditional hops define the happy-path execution order.
+        # Failure hops (evaluation=N) to Abort must not reorder or interleave
+        # success-path TRANS entries in dependency resolution.
+        hops = [
+            h
+            for h in self.job.hops
+            if h.enabled
+            and (
+                h.unconditional is True
+                or (h.evaluation or "Y").upper() != "N"
+            )
+        ]
 
         adj: dict[str, set[str]] = defaultdict(set)
         in_degree: dict[str, int] = {e.name: 0 for e in self.job.entries}

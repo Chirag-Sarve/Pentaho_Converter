@@ -81,13 +81,26 @@ def execute_job(
     variables: dict[str, Any] = {
         "Internal.Job.Name": job_name,
         "Internal.Job.Filename.Name": job_source,
+        # Default job directory to {data}/jobs so SET_VARIABLES paths like
+        # ${Internal.Job.Filename.Directory}/../output → {data}/output
+        # (Pentaho Spoon substitutes the real .kjb folder; Databricks has no .kjb path).
         "Internal.Job.Filename.Directory": str(
-            cfg.get("Internal.Job.Filename.Directory", "")
+            cfg.get(
+                "Internal.Job.Filename.Directory",
+                (str(cfg.get("PENTAHO_DATA_DIR") or "").rstrip("/") + "/jobs")
+                if cfg.get("PENTAHO_DATA_DIR")
+                else "",
+            )
         ),
         "Internal.Entry.Current.Directory": str(
             cfg.get(
                 "Internal.Entry.Current.Directory",
-                cfg.get("Internal.Job.Filename.Directory", ""),
+                cfg.get(
+                    "Internal.Job.Filename.Directory",
+                    (str(cfg.get("PENTAHO_DATA_DIR") or "").rstrip("/") + "/jobs")
+                    if cfg.get("PENTAHO_DATA_DIR")
+                    else "",
+                ),
             )
         ),
         **parameters,

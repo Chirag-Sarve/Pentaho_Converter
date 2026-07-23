@@ -1300,3 +1300,72 @@ def _http_via_urllib(
             False, f"HTTP {status}", paths, warnings, error=ValueError(f"HTTP {status}"), extra=extra
         )
     return FileOpOutcome(True, f"HTTP {status}", paths, warnings, extra=extra)
+
+
+def promote_spark_csv_to_file(tmp_dir: str, final_path: str) -> str:
+    """Promote a Spark CSV directory (part-*) to a single Pentaho-like file path.
+
+    Spark ``.csv(path)`` always creates a directory. Pentaho Text File Output
+    writes one file. Job FILE_EXISTS checks and operator verification expect a
+    file at ``final_path``, so we coalesce-write to ``tmp_dir`` then move the
+    part file into place (local Path or Databricks ``dbutils.fs``).
+    """
+    import os
+
+    tmp = Path(tmp_dir)
+    final = Path(final_path)
+
+    parts = sorted(tmp.glob("part-*")) if tmp.exists() else []
+    if not parts:
+        parts = sorted(
+            p
+            for p in (tmp.rglob("*") if tmp.exists() else [])
+            if p.is_file() and not p.name.startswith("_") and not p.name.startswith(".")
+        )
+
+    if parts:
+        final.parent.mkdir(parents=True, exist_ok=True)
+        if final.exists():
+            if final.is_dir():
+                shutil.rmtree(final)
+            else:
+                final.unlink()
+        os.replace(str(parts[0]), str(final))
+        shutil.rmtree(tmp, ignore_errors=True)
+        return str(final)
+
+    # UC Volumes / DBFS: pathlib may not see the Spark write — use dbutils.
+    try:
+        from pyspark.dbutils import DBUtils
+        from pyspark.sql import SparkSession
+
+        spark = SparkSession.getActiveSession()
+        if spark is None:
+            raise FileNotFoundError(f"No Spark part files under {tmp_dir}")
+        dbu = DBUtils(spark)
+        listing = [x.path for x in dbu.fs.ls(tmp_dir)]
+        part_uris = [
+            p
+            for p in listing
+            if "/part-" in p or p.rstrip("/").rsplit("/", 1)[-1].startswith("part-")
+        ]
+        if not part_uris:
+            raise FileNotFoundError(f"Text File Output wrote no part files under {tmp_dir}")
+        parent = final_path.rsplit("/", 1)[0] if "/" in final_path else "."
+        dbu.fs.mkdirs(parent)
+        try:
+            dbu.fs.rm(final_path, True)
+        except Exception:
+            pass
+        dbu.fs.cp(part_uris[0], final_path)
+        try:
+            dbu.fs.rm(tmp_dir, True)
+        except Exception:
+            pass
+        return final_path
+    except FileNotFoundError:
+        raise
+    except Exception as exc:
+        raise FileNotFoundError(
+            f"Text File Output wrote no part files under {tmp_dir}"
+        ) from exc

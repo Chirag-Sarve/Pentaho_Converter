@@ -360,8 +360,13 @@ class TextFileOutputHandler(BaseStepHandler):
             lines.append(f"selected_output_df = {out_var}.select(*_tfo_declared)")
             write_df = "selected_output_df"
 
+        # Spark CSV always creates a directory; Pentaho writes a single file.
+        # coalesce(1) → temp dir → promote part file to the configured path so
+        # FILE_EXISTS / operator checks see a real file (and OUTPUT_PATH matches).
+        lines.append(f"_tfo_out_path = {path_expr}")
+        lines.append("_tfo_tmp_dir = _tfo_out_path + '.__spark_out'")
         lines.append("(")
-        lines.append(f"    {write_df}.write")
+        lines.append(f"    {write_df}.coalesce(1).write")
         lines.append(f"    .mode({mode!r})")
         lines.append(f"    .option(\"header\", {header})")
         if separator:
@@ -384,11 +389,12 @@ class TextFileOutputHandler(BaseStepHandler):
             lines.append(
                 "# INFO: enclosure_forced has no direct Spark CSV equivalent"
             )
-        lines.append(f"    .csv({path_expr})")
+        lines.append("    .csv(_tfo_tmp_dir)")
         lines.append(")")
-        # Spark CSV creates a directory; Pentaho FILE_EXISTS expects a file path.
-        # Ensure the path is visible to dbutils/Path checks used by job entries.
-        lines.append(f"_tfo_out_path = {path_expr}")
+        lines.append(
+            "from engine.file_ops import promote_spark_csv_to_file as _tfo_promote"
+        )
+        lines.append("_tfo_promote(_tfo_tmp_dir, _tfo_out_path)")
         lines.append("logging.info('Text File Output written to %s', _tfo_out_path)")
         lines.append("try:")
         lines.append("    from pyspark.dbutils import DBUtils as _TfoDBUtils")
@@ -396,10 +402,14 @@ class TextFileOutputHandler(BaseStepHandler):
         lines.append("    _tfo_spark = _TfoSpark.getActiveSession()")
         lines.append("    if _tfo_spark is not None:")
         lines.append("        _tfo_dbu = _TfoDBUtils(_tfo_spark)")
-        lines.append("        _tfo_listing = _tfo_dbu.fs.ls(_tfo_out_path)")
         lines.append(
-            "        logging.info('Text File Output listing (%s entries): %s', "
-            "len(_tfo_listing), [x.path for x in _tfo_listing[:5]])"
+            "        _tfo_parent = _tfo_out_path.rsplit('/', 1)[0] "
+            "if '/' in _tfo_out_path else _tfo_out_path"
+        )
+        lines.append("        _tfo_listing = _tfo_dbu.fs.ls(_tfo_parent)")
+        lines.append(
+            "        logging.info('Text File Output parent listing (%s entries): %s', "
+            "len(_tfo_listing), [x.path for x in _tfo_listing[:8]])"
         )
         lines.append("except Exception as _tfo_list_exc:")
         lines.append(
