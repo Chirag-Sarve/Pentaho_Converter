@@ -720,6 +720,262 @@
       margin: 0 0 0.5rem;
       border-bottom: 1px solid var(--border);
     }
+    .validation-center-view.compare-focus #validation-report-body { display: none !important; }
+    .validation-center-view:not(.compare-focus) #assessment-report { display: none !important; }
+    .validation-center-view.compare-focus #assessment-report { display: block !important; }
+
+    /* Conversion Assessment Report (Compare Code) */
+    .assessment-report { width: 100%; }
+    .assessment-summary-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      margin-bottom: 0.85rem;
+      overflow: hidden;
+    }
+    .assessment-summary-header {
+      padding: 0.65rem 0.9rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+    }
+    .assessment-summary-grid {
+      display: grid;
+      grid-template-columns: minmax(140px, 180px) 1fr;
+      gap: 0;
+    }
+    @media (max-width: 900px) {
+      .assessment-summary-grid { grid-template-columns: 1fr; }
+    }
+    .assessment-score-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      padding: 1rem 0.75rem;
+      border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, #F8FAFC 0%, #EEF2F7 100%);
+    }
+    .assessment-score-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .assessment-score-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .assessment-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.55rem;
+      padding: 0.85rem;
+    }
+    .assessment-metric {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.65rem;
+      background: var(--surface-2);
+    }
+    .assessment-metric .lbl {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-bottom: 0.2rem;
+    }
+    .assessment-metric .val {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .assessment-metric.full .val { color: #16a34a; }
+    .assessment-metric.partial .val { color: #ca8a04; }
+    .assessment-metric.manual .val { color: #dc2626; }
+    .assessment-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+      margin: 0 0 0.75rem;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+    .assessment-filters label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-right: 0.15rem;
+    }
+    .assessment-filter-btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.28rem 0.55rem;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .assessment-filter-btn.active {
+      border-color: #2563eb;
+      background: rgba(37, 99, 235, 0.1);
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+    .assessment-filters select {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.72rem;
+      padding: 0.28rem 0.4rem;
+      max-width: 180px;
+    }
+    .assessment-step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .assessment-step-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .assessment-step-card.status-full { border-left: 4px solid #22c55e; }
+    .assessment-step-card.status-partial { border-left: 4px solid #eab308; }
+    .assessment-step-card.status-manual { border-left: 4px solid #ef4444; }
+    .assessment-step-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.75rem;
+      background: var(--surface-2);
+      cursor: pointer;
+    }
+    .assessment-step-title {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-weight: 600;
+      font-size: 0.82rem;
+      min-width: 0;
+    }
+    .assessment-step-title .step-icon { font-size: 0.9rem; }
+    .assessment-step-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .assessment-pill {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      background: var(--surface);
+    }
+    .assessment-pill.full { color: #15803d; background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.35); }
+    .assessment-pill.partial { color: #a16207; background: rgba(234,179,8,0.14); border-color: rgba(234,179,8,0.4); }
+    .assessment-pill.manual { color: #b91c1c; background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); }
+    .assessment-step-actions { display: flex; gap: 0.35rem; align-items: center; }
+    .assessment-open-btn, .assessment-expand-btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.25rem 0.55rem;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+    .assessment-open-btn:hover, .assessment-expand-btn:hover {
+      border-color: #2563eb;
+      color: #1d4ed8;
+    }
+    .assessment-open-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .assessment-step-body {
+      display: none;
+      padding: 0.7rem 0.8rem 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    .assessment-step-card.open .assessment-step-body { display: block; }
+    .assessment-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 0.55rem 0.85rem;
+      margin-bottom: 0.65rem;
+    }
+    .assessment-detail-item .k {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 0.15rem;
+    }
+    .assessment-detail-item .v {
+      font-size: 0.78rem;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .assessment-notes, .assessment-impl, .assessment-comment {
+      margin-top: 0.55rem;
+      padding: 0.55rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #F8FAFC;
+      font-size: 0.74rem;
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+    .assessment-comment {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      background: #0f172a;
+      color: #e2e8f0;
+      border-color: #1e293b;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .assessment-section-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin: 0.45rem 0 0.25rem;
+    }
+    .assessment-empty {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 1.25rem;
+      font-size: 0.82rem;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+    .code-line {
+      display: block;
+      white-space: pre;
+    }
+    .code-line.hl-line {
+      background: rgba(250, 204, 21, 0.28);
+      box-shadow: inset 3px 0 0 #eab308;
+    }
+    .code-line.hl-line-error {
+      background: rgba(239, 68, 68, 0.18);
+      box-shadow: inset 3px 0 0 #ef4444;
+    }
+    .code-line.hl-line-success {
+      background: rgba(34, 197, 94, 0.16);
+      box-shadow: inset 3px 0 0 #22c55e;
+    }
     .center-panel.validation-mode .center-toolbar { display: none; }
     .center-panel.validation-mode #workspace-center-view { display: none !important; }
     .center-panel.validation-mode .complexity-center-view { display: none !important; }
@@ -3286,7 +3542,7 @@
                     <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     Analyze Code
                   </button>
-                  <button class="ws-btn" id="compare-btn" type="button" title="Open Validation comparison">
+                  <button class="ws-btn" id="compare-btn" type="button" title="Open Conversion Assessment Report">
                     <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M21 3l-7 7"/><path d="M3 3l7 7"/><path d="M3 21h18"/></svg>
                     Compare Code
                   </button>
@@ -3464,6 +3720,54 @@
                         Analyzing output...
                       </div>
                       <div id="analysis-content" style="display:none;">
+                        <div id="assessment-report" class="assessment-report" aria-label="Conversion Assessment Report">
+                          <div class="assessment-summary-card">
+                            <div class="assessment-summary-header">Conversion Summary</div>
+                            <div class="assessment-summary-grid">
+                              <div class="assessment-score-panel">
+                                <div class="assessment-score-value" id="assess-score">0%</div>
+                                <div class="assessment-score-label">Overall Conversion Score</div>
+                              </div>
+                              <div class="assessment-metrics">
+                                <div class="assessment-metric">
+                                  <div class="lbl">Total Steps</div>
+                                  <div class="val" id="assess-total">0</div>
+                                </div>
+                                <div class="assessment-metric full">
+                                  <div class="lbl">🟢 Fully Converted</div>
+                                  <div class="val" id="assess-full">0</div>
+                                </div>
+                                <div class="assessment-metric partial">
+                                  <div class="lbl">🟡 Partially Converted</div>
+                                  <div class="val" id="assess-partial">0</div>
+                                </div>
+                                <div class="assessment-metric manual">
+                                  <div class="lbl">🔴 Manual Required</div>
+                                  <div class="val" id="assess-manual">0</div>
+                                </div>
+                                <div class="assessment-metric">
+                                  <div class="lbl">Estimated Manual Work</div>
+                                  <div class="val" id="assess-effort">—</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="assessment-filters" id="assessment-filters">
+                            <label>Filter</label>
+                            <button type="button" class="assessment-filter-btn active" data-filter="all">All</button>
+                            <button type="button" class="assessment-filter-btn" data-filter="fully_converted">Fully Converted</button>
+                            <button type="button" class="assessment-filter-btn" data-filter="partially_converted">Partially Converted</button>
+                            <button type="button" class="assessment-filter-btn" data-filter="manual_required">Manual Required</button>
+                            <label for="assess-filter-trans">Transformation</label>
+                            <select id="assess-filter-trans"><option value="">All</option></select>
+                            <label for="assess-filter-type">Step Type</label>
+                            <select id="assess-filter-type"><option value="">All</option></select>
+                          </div>
+                          <div class="validation-section-heading">Step Assessment</div>
+                          <div class="assessment-step-list" id="assessment-step-list"></div>
+                        </div>
+
+                        <div id="validation-report-body">
                         <div class="validation-accuracy-row">
                           <div class="validation-card validation-gauge-card">
                             <div class="validation-card-header">Accuracy Score</div>
@@ -3555,6 +3859,7 @@
                           <div class="validation-section-heading" id="recommendations-heading">Recommendations</div>
                           <ul class="warn-list" id="recommendations-list"></ul>
                         </div>
+                        </div><!-- /validation-report-body -->
                       </div>
                     </div>
                   </div>
@@ -3901,6 +4206,9 @@
   let projectInventory = [];
   let lastAnalysis = null;
   let lastSummary = null;
+  let lastCodeNavigation = null;
+  let assessmentFilter = { status: 'all', transformation: '', stepType: '' };
+  let assessmentStepsCache = [];
   let lineageData = null;
   let selectedLineageNodeId = null;
   let lineageView = { scale: 1, tx: 0, ty: 0, contentW: 520, contentH: 280, positions: null };
@@ -4477,7 +4785,7 @@
         if (validationView) validationView.classList.add('compare-focus');
       }
       if (validationView) validationView.classList.add('active');
-      if (titleEl) titleEl.textContent = mode === 'compare' ? 'Compare Code' : 'Validation';
+      if (titleEl) titleEl.textContent = mode === 'compare' ? 'Conversion Assessment Report' : 'Validation';
       if (!explorerManuallyOpened) setExplorerCollapsed(true);
     } else if (mode === 'analyze') {
       // Analyze Code is a code viewer only — stay in workspace preview
@@ -4690,7 +4998,8 @@
     }
   }
 
-  function selectFile(name) {
+  function selectFile(name, options) {
+    options = options || {};
     activeFile = name;
     generatedCode = generatedFiles[name] || '';
     syncGeneratedTreeSelection(name);
@@ -4702,8 +5011,66 @@
     placeholder.style.display = 'none';
     outputArea.style.display = 'block';
     outputDrawer.classList.add('visible');
-    codeBlock.textContent = generatedCode;
-    if (generatedCode) hljs.highlightElement(codeBlock);
+
+    const startLine = options.startLine ? Number(options.startLine) : null;
+    const endLine = options.endLine ? Number(options.endLine) : startLine;
+    if (startLine && generatedCode) {
+      renderCodeWithLineHighlight(generatedCode, startLine, endLine || startLine, options.highlightLevel || 'warning');
+    } else {
+      codeBlock.textContent = generatedCode;
+      if (generatedCode) hljs.highlightElement(codeBlock);
+    }
+  }
+
+  function renderCodeWithLineHighlight(code, startLine, endLine, highlightLevel) {
+    const lines = String(code || '').split('\n');
+    const start = Math.max(1, Number(startLine) || 1);
+    const end = Math.max(start, Number(endLine) || start);
+    const levelClass = highlightLevel === 'error'
+      ? 'hl-line-error'
+      : (highlightLevel === 'success' ? 'hl-line-success' : 'hl-line');
+    const html = lines.map((line, idx) => {
+      const n = idx + 1;
+      const active = n >= start && n <= end;
+      const cls = active ? ('code-line ' + levelClass) : 'code-line';
+      return '<span class="' + cls + '" data-line="' + n + '">' + esc(line) + '</span>';
+    }).join('\n');
+    codeBlock.innerHTML = html;
+    requestAnimationFrame(() => {
+      const target = codeBlock.querySelector('[data-line="' + start + '"]');
+      if (target && typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (outputArea) {
+        const lineHeight = parseFloat(getComputedStyle(codeBlock).lineHeight) || 20;
+        outputArea.scrollTop = Math.max(0, (start - 3) * lineHeight);
+      }
+    });
+  }
+
+  function openAssessmentStepCode(step) {
+    if (!step) return false;
+    const file = step.generated_file || '';
+    const pyFile = findGeneratedFileFor(file) || findGeneratedFileFor(step.function_name) || findGeneratedFileFor(step.name);
+    if (!pyFile || !generatedFiles[pyFile]) {
+      setStatus('Generated file not found for this step', 'error');
+      return false;
+    }
+    navigateTo('upload');
+    setCenterMode('workspace');
+    selectFile(pyFile, {
+      startLine: step.start_line,
+      endLine: step.end_line || step.start_line,
+      highlightLevel: step.highlight_level || (step.assessment_status === 'manual_required' ? 'error' : 'warning'),
+    });
+    copyBtn.style.display = 'inline-flex';
+    downloadBtn.style.display = 'inline-flex';
+    downloadZipBtn.style.display = 'inline-flex';
+    setTimeout(() => {
+      if (outputDrawer) outputDrawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    const loc = (step.function_name || 'function') + (step.start_line ? ' @ line ' + step.start_line : '');
+    setStatus('Opened ' + (pyFile.split(/[/\\]/).pop()) + ' — ' + loc, 'success');
+    return true;
   }
 
   function findGeneratedFileFor(name) {
@@ -4759,7 +5126,18 @@
       navigateTo('upload');
     }
 
-    ensureGeneratedPreviewVisible(pyFile);
+    if (options.startLine) {
+      selectFile(pyFile, {
+        startLine: options.startLine,
+        endLine: options.endLine || options.startLine,
+        highlightLevel: options.highlightLevel || 'warning',
+      });
+      copyBtn.style.display = 'inline-flex';
+      downloadBtn.style.display = 'inline-flex';
+      downloadZipBtn.style.display = 'inline-flex';
+    } else {
+      ensureGeneratedPreviewVisible(pyFile);
+    }
 
     setTimeout(() => {
       outputDrawer.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5026,6 +5404,8 @@
     projectInventory = [];
     lastSummary = null;
     lastAnalysis = null;
+    lastCodeNavigation = null;
+    assessmentStepsCache = [];
     lastConvertedName = 'pentaho_converted';
     updateProjectMeta(null, 'Ready', null);
     document.getElementById('header-badge-status').style.display = 'none';
@@ -5097,6 +5477,7 @@
 
       lastSummary = data.summary;
       lastAnalysis = data.analysis;
+      lastCodeNavigation = data.code_navigation || null;
       renderedAnalysisRef = null;
       validationHeavyRendered = false;
       hideProgress();
@@ -5184,6 +5565,8 @@
     projectInventory = [];
     lastSummary = null;
     lastAnalysis = null;
+    lastCodeNavigation = null;
+    assessmentStepsCache = [];
     lineageData = null;
     if (pushBtn) updateDeployButtonState();
     analysisSection.classList.remove('visible');
@@ -5326,26 +5709,213 @@
     return '#EF4444';
   }
 
+  function normalizeAssessmentStep(tx) {
+    const status = tx.status || '';
+    let bucket = tx.assessment_status;
+    if (!bucket) {
+      if (status === 'converted') bucket = 'fully_converted';
+      else if (status === 'partial' || status === 'partially_supported' || status === 'approximated') bucket = 'partially_converted';
+      else bucket = 'manual_required';
+    }
+    const label = tx.assessment_label || (
+      bucket === 'fully_converted' ? 'Fully Converted'
+        : bucket === 'partially_converted' ? 'Partially Converted'
+          : 'Manual Implementation Required'
+    );
+    const icon = tx.assessment_icon || (
+      bucket === 'fully_converted' ? '🟢' : bucket === 'partially_converted' ? '🟡' : '🔴'
+    );
+    const confidence = tx.confidence != null ? tx.confidence : (tx.semantic_score != null ? tx.semantic_score : 0);
+    return Object.assign({}, tx, {
+      assessment_status: bucket,
+      assessment_label: label,
+      assessment_icon: icon,
+      confidence: confidence,
+      manual_work_required: tx.manual_work_required != null ? !!tx.manual_work_required : bucket !== 'fully_converted',
+    });
+  }
+
+  function renderAssessmentSummary(r) {
+    const summary = (r && r.assessment_summary) || {};
+    const score = summary.overall_conversion_score != null
+      ? summary.overall_conversion_score
+      : (r.accuracy_score || 0);
+    const scoreEl = document.getElementById('assess-score');
+    if (scoreEl) {
+      scoreEl.textContent = score + '%';
+      scoreEl.style.color = gaugeColor(score);
+    }
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('assess-total', summary.total_steps != null ? summary.total_steps : ((r.transformations || []).length));
+    set('assess-full', summary.fully_converted != null ? summary.fully_converted : (r.fully_converted || 0));
+    set('assess-partial', summary.partially_converted != null ? summary.partially_converted : (r.approximated || 0));
+    set('assess-manual', summary.manual_required != null ? summary.manual_required : (r.manual_required || 0));
+    set('assess-effort', summary.estimated_manual_work || '—');
+  }
+
+  function populateAssessmentFilters(steps) {
+    const transSel = document.getElementById('assess-filter-trans');
+    const typeSel = document.getElementById('assess-filter-type');
+    if (!transSel || !typeSel) return;
+    const trans = Array.from(new Set(steps.map(s => s.transformation_name).filter(Boolean))).sort();
+    const types = Array.from(new Set(steps.map(s => s.type).filter(Boolean))).sort();
+    const keepTrans = assessmentFilter.transformation;
+    const keepType = assessmentFilter.stepType;
+    transSel.innerHTML = '<option value="">All</option>' + trans.map(t =>
+      '<option value="' + esc(t) + '"' + (t === keepTrans ? ' selected' : '') + '>' + esc(t) + '</option>'
+    ).join('');
+    typeSel.innerHTML = '<option value="">All</option>' + types.map(t =>
+      '<option value="' + esc(t) + '"' + (t === keepType ? ' selected' : '') + '>' + esc(t) + '</option>'
+    ).join('');
+  }
+
+  function filteredAssessmentSteps() {
+    return assessmentStepsCache.filter(step => {
+      if (assessmentFilter.status !== 'all' && step.assessment_status !== assessmentFilter.status) return false;
+      if (assessmentFilter.transformation && step.transformation_name !== assessmentFilter.transformation) return false;
+      if (assessmentFilter.stepType && step.type !== assessmentFilter.stepType) return false;
+      return true;
+    });
+  }
+
+  function renderAssessmentStepList() {
+    const list = document.getElementById('assessment-step-list');
+    if (!list) return;
+    const steps = filteredAssessmentSteps();
+    list.innerHTML = '';
+    if (!steps.length) {
+      list.innerHTML = '<div class="assessment-empty">No steps match the current filters.</div>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    steps.forEach((step, idx) => {
+      const bucket = step.assessment_status;
+      const statusClass = bucket === 'fully_converted' ? 'full' : (bucket === 'partially_converted' ? 'partial' : 'manual');
+      const card = document.createElement('div');
+      card.className = 'assessment-step-card status-' + statusClass;
+      if (bucket !== 'fully_converted') card.classList.add('open');
+      card.dataset.index = String(idx);
+
+      const lines = (step.start_line && step.end_line && step.start_line !== step.end_line)
+        ? (step.start_line + '–' + step.end_line)
+        : (step.start_line || '—');
+      const canOpen = !!(step.generated_file || step.function_name);
+
+      card.innerHTML =
+        '<div class="assessment-step-head">' +
+          '<div class="assessment-step-title">' +
+            '<span class="step-icon" aria-hidden="true">' + esc(step.assessment_icon) + '</span>' +
+            '<span>' + esc(step.name || 'Unnamed step') + '</span>' +
+          '</div>' +
+          '<div class="assessment-step-meta">' +
+            '<span class="assessment-pill ' + statusClass + '">' + esc(step.assessment_label) + '</span>' +
+            '<span class="assessment-pill">' + esc(String(step.confidence != null ? step.confidence : 0)) + '%</span>' +
+            '<span class="assessment-pill">' + esc(step.type || '—') + '</span>' +
+          '</div>' +
+          '<div class="assessment-step-actions">' +
+            '<button type="button" class="assessment-open-btn"' + (canOpen ? '' : ' disabled') + '>Open Code</button>' +
+            '<button type="button" class="assessment-expand-btn">Details</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="assessment-step-body">' +
+          '<div class="assessment-detail-grid">' +
+            '<div class="assessment-detail-item"><div class="k">Step Name</div><div class="v">' + esc(step.name || '—') + '</div></div>' +
+            '<div class="assessment-detail-item"><div class="k">Pentaho Step Type</div><div class="v">' + esc(step.type || '—') + '</div></div>' +
+            '<div class="assessment-detail-item"><div class="k">Transformation / Job</div><div class="v">' + esc(step.transformation_name || '—') + '</div></div>' +
+            '<div class="assessment-detail-item"><div class="k">Conversion Status</div><div class="v">' + esc(step.assessment_label) + '</div></div>' +
+            '<div class="assessment-detail-item"><div class="k">Confidence %</div><div class="v">' + esc(String(step.confidence != null ? step.confidence : 0)) + '%</div></div>' +
+            '<div class="assessment-detail-item"><div class="k">Generated PySpark File</div><div class="v">' + esc(step.generated_file || '—') + '</div></div>' +
+            '<div class="assessment-detail-item"><div class="k">Generated Function</div><div class="v">' + esc(step.function_name || '—') + '</div></div>' +
+            '<div class="assessment-detail-item"><div class="k">Line Number(s)</div><div class="v">' + esc(String(lines)) + '</div></div>' +
+            '<div class="assessment-detail-item"><div class="k">Manual Work Required</div><div class="v">' + (step.manual_work_required ? 'Yes' : 'No') + '</div></div>' +
+          '</div>' +
+          (step.what_converted ? '<div class="assessment-section-label">What was converted</div><div class="assessment-notes">' + esc(step.what_converted) + '</div>' : '') +
+          (step.what_missing ? '<div class="assessment-section-label">What is missing</div><div class="assessment-notes">' + esc(step.what_missing) + '</div>' : '') +
+          (step.why_not_converted && bucket !== 'fully_converted' ? '<div class="assessment-section-label">Why automatic conversion was limited</div><div class="assessment-notes">' + esc(step.why_not_converted) + '</div>' : '') +
+          '<div class="assessment-section-label">Developer Notes</div><div class="assessment-notes">' + esc(step.developer_notes || step.detail || '—') + '</div>' +
+          '<div class="assessment-section-label">Recommended Implementation</div><div class="assessment-impl">' + esc(step.recommended_implementation || '—') + '</div>' +
+          (step.placeholder_comment
+            ? '<div class="assessment-section-label">Placeholder Comment (copy into generated function if needed)</div><pre class="assessment-comment">' + esc(step.placeholder_comment) + '</pre>'
+            : '') +
+        '</div>';
+
+      const head = card.querySelector('.assessment-step-head');
+      const expandBtn = card.querySelector('.assessment-expand-btn');
+      const openBtn = card.querySelector('.assessment-open-btn');
+      const toggle = () => card.classList.toggle('open');
+      if (head) head.addEventListener('click', (e) => {
+        if (e.target.closest('.assessment-open-btn') || e.target.closest('.assessment-expand-btn')) return;
+        toggle();
+      });
+      if (expandBtn) expandBtn.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+      if (openBtn) openBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openAssessmentStepCode(step);
+      });
+      frag.appendChild(card);
+    });
+    list.appendChild(frag);
+  }
+
+  function renderAssessmentReport(r) {
+    assessmentStepsCache = (r.transformations || []).map(normalizeAssessmentStep);
+    renderAssessmentSummary(r);
+    populateAssessmentFilters(assessmentStepsCache);
+    renderAssessmentStepList();
+  }
+
+  function wireAssessmentFilters() {
+    const bar = document.getElementById('assessment-filters');
+    if (!bar || bar.dataset.wired === '1') return;
+    bar.dataset.wired = '1';
+    bar.querySelectorAll('.assessment-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bar.querySelectorAll('.assessment-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        assessmentFilter.status = btn.dataset.filter || 'all';
+        renderAssessmentStepList();
+      });
+    });
+    const transSel = document.getElementById('assess-filter-trans');
+    const typeSel = document.getElementById('assess-filter-type');
+    if (transSel) transSel.addEventListener('change', () => {
+      assessmentFilter.transformation = transSel.value || '';
+      renderAssessmentStepList();
+    });
+    if (typeSel) typeSel.addEventListener('change', () => {
+      assessmentFilter.stepType = typeSel.value || '';
+      renderAssessmentStepList();
+    });
+  }
+
   function renderAnalysisSummary(r) {
     const circumference = 314.16;
     const offset = circumference - (circumference * r.accuracy_score / 100);
     const arc = document.getElementById('gauge-arc');
-    arc.style.stroke = gaugeColor(r.accuracy_score);
-    arc.setAttribute('stroke-dashoffset', offset);
-    document.getElementById('gauge-score').textContent = r.accuracy_score + '%';
-    document.getElementById('gauge-score').style.color = gaugeColor(r.accuracy_score);
-    document.getElementById('a-coverage').textContent = (r.coverage_score ?? r.coverage_percent ?? 0) + '%';
-    document.getElementById('a-semantic').textContent = (r.semantic_accuracy_percent ?? r.accuracy_score ?? 0) + '%';
-
-    document.getElementById('a-converted').textContent = r.fully_converted;
-    document.getElementById('a-approx').textContent = r.approximated;
-    document.getElementById('a-unsup').textContent = r.unsupported;
-    document.getElementById('a-missing').textContent = r.missing_in_output;
+    if (arc) {
+      arc.style.stroke = gaugeColor(r.accuracy_score);
+      arc.setAttribute('stroke-dashoffset', offset);
+    }
+    const gaugeScore = document.getElementById('gauge-score');
+    if (gaugeScore) {
+      gaugeScore.textContent = r.accuracy_score + '%';
+      gaugeScore.style.color = gaugeColor(r.accuracy_score);
+    }
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setTxt('a-coverage', (r.coverage_score ?? r.coverage_percent ?? 0) + '%');
+    setTxt('a-semantic', (r.semantic_accuracy_percent ?? r.accuracy_score ?? 0) + '%');
+    setTxt('a-converted', r.fully_converted);
+    setTxt('a-approx', r.approximated);
+    setTxt('a-unsup', r.unsupported);
+    setTxt('a-missing', r.missing_in_output);
     const syntaxEl = document.getElementById('a-syntax');
-    syntaxEl.textContent = r.syntax_valid ? 'Valid' : 'Invalid';
-    syntaxEl.style.color = r.syntax_valid ? '#4ade80' : '#f87171';
-    document.getElementById('a-todos').textContent = r.todo_count;
+    if (syntaxEl) {
+      syntaxEl.textContent = r.syntax_valid ? 'Valid' : 'Invalid';
+      syntaxEl.style.color = r.syntax_valid ? '#4ade80' : '#f87171';
+    }
+    setTxt('a-todos', r.todo_count);
     if (lastSummary) updateSummaryCard(lastSummary, r);
+    renderAssessmentSummary(r);
   }
 
   function fillIssueList(listId, blockId, items, iconSeverity) {
@@ -5373,21 +5943,27 @@
   }
 
   function renderAnalysisHeavy(r) {
+    wireAssessmentFilters();
+    renderAssessmentReport(r);
+
     const tbody = document.getElementById('tx-tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
     const statusBadgeFor = (tx) => {
       const status = tx.status;
       const label = tx.display_status || '';
-      if (status === 'converted') {
+      const assessment = tx.assessment_status;
+      if (assessment === 'fully_converted' || status === 'converted') {
         if (label === 'CONVERTED WITH WARNINGS')
           return '<span class="badge badge-green" title="Executable Spark complete">Converted with warnings</span>';
         if (label === 'CONVERTED (Legacy metadata preserved)')
           return '<span class="badge badge-green" title="Legacy metadata preserved as INFO">Converted (legacy metadata)</span>';
-        return '<span class="badge badge-green">Converted</span>';
+        return '<span class="badge badge-green">Fully Converted</span>';
       }
-      if (status === 'partial' || status === 'partially_supported' || status === 'approximated')
-        return '<span class="badge badge-yellow">Partial</span>';
-      if (status === 'manual_required') return '<span class="badge badge-yellow">Manual</span>';
+      if (assessment === 'partially_converted' || status === 'partial' || status === 'partially_supported' || status === 'approximated')
+        return '<span class="badge badge-yellow">Partially Converted</span>';
+      if (assessment === 'manual_required' || status === 'manual_required')
+        return '<span class="badge badge-red">Manual Required</span>';
       if (status === 'failed' || status === 'unsupported') return '<span class="badge badge-red">Failed</span>';
       return '<span class="badge badge-gray">Unknown</span>';
     };
@@ -6900,7 +7476,7 @@
   }
 
   function openCompareView() {
-    // Compare opens Validation page (not Workspace) — keep files-panel toggle if already there
+    // Compare opens Conversion Assessment Report (Validation shell)
     const centerPanel = document.getElementById('center-panel');
     const stayingOnValidation = !!(centerPanel && centerPanel.classList.contains('validation-mode'));
     if (!stayingOnValidation) explorerManuallyOpened = false;
@@ -6911,22 +7487,12 @@
     }
     presentValidationView(lastAnalysis, {
       mode: 'compare',
-      emptyMessage: 'Run a conversion to view expression comparison.',
+      emptyMessage: 'Run a conversion to view the Conversion Assessment Report.',
     });
     if (lastAnalysis) {
       setTimeout(() => {
         const scroll = document.getElementById('validation-scroll');
-        const heading = document.getElementById('expr-heading');
-        if (heading && heading.style.display !== 'none') {
-          if (scroll) {
-            const top = heading.offsetTop - 8;
-            scroll.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-          } else {
-            heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        } else if (scroll) {
-          scroll.scrollTop = 0;
-        }
+        if (scroll) scroll.scrollTop = 0;
       }, 80);
     }
   }

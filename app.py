@@ -104,65 +104,43 @@ def convert():
 
 
 def _build_analysis(result) -> dict:
-    """Build a semantic conversion report for the UI."""
+    """Build a semantic conversion + assessment report for the UI.
+
+    Assessment fields are reporting/navigation metadata only — they do not
+    change conversion, generated PySpark, or execution behaviour.
+    """
+    from pentaho_converter.assessment_report import build_assessment_payload
     from pentaho_converter.reporting import build_conversion_report
 
     report = build_conversion_report(result.stats)
     steps = result.stats.step_results
-    converted = sum(1 for s in steps if s.status == "converted")
-    partial = sum(1 for s in steps if s.status in ("partial", "partially_supported", "approximated"))
-    failed = sum(1 for s in steps if s.status in ("failed", "unsupported", "skipped"))
-    manual = sum(1 for s in steps if s.status == "manual_required")
+    accuracy = int(report.semantic_accuracy_percent)
+    assessment = build_assessment_payload(
+        steps,
+        code_navigation=getattr(result, "code_navigation", None) or {},
+        accuracy_score=accuracy,
+    )
+    summary = assessment["assessment_summary"]
+    transformations = assessment["transformations"]
 
     return {
-        "accuracy_score": int(report.semantic_accuracy_percent),
+        "accuracy_score": accuracy,
         "coverage_score": int(report.coverage_percent),
         "semantic_accuracy_percent": round(report.semantic_accuracy_percent, 1),
         "coverage_percent": round(report.coverage_percent, 1),
-        "fully_converted": converted,
-        "approximated": partial,
-        "unsupported": failed,
-        "manual_required": manual,
+        "fully_converted": summary["fully_converted"],
+        "approximated": summary["partially_converted"],
+        "unsupported": sum(
+            1 for s in transformations
+            if (s.get("status") or "") in ("failed", "unsupported", "skipped")
+        ),
+        "manual_required": summary["manual_required"],
+        "partially_converted": summary["partially_converted"],
         "missing_in_output": 0,
         "syntax_valid": all(not s.errors for s in steps) if steps else True,
-        "todo_count": partial + failed + manual,
-        "transformations": [
-            {
-                "name": s.step_name,
-                "type": s.step_type,
-                "status": s.status,
-                "display_status": getattr(s, "display_status", "")
-                or (
-                    "CONVERTED WITH WARNINGS"
-                    if s.status == "converted" and getattr(s, "warnings", None)
-                    else (
-                        "CONVERTED (Legacy metadata preserved)"
-                        if s.status == "converted" and getattr(s, "infos", None)
-                        else (
-                            "CONVERTED"
-                            if s.status == "converted"
-                            else (
-                                "PARTIAL"
-                                if s.status in ("partial", "partially_supported", "approximated")
-                                else (s.status or "").upper()
-                            )
-                        )
-                    )
-                ),
-                "semantic_score": int(getattr(s, "semantic_score", 0) * 100),
-                "has_logic": s.status == "converted",
-                "detail": s.detail,
-                "warnings": getattr(s, "warnings", []),
-                "errors": getattr(s, "errors", []),
-                "infos": getattr(s, "infos", []),
-                "transformation_name": getattr(s, "transformation_name", "") or "",
-                "generated_file": getattr(s, "generated_file", "") or "",
-                "function_name": getattr(s, "function_name", "") or "",
-                "start_line": getattr(s, "start_line", None),
-                "end_line": getattr(s, "end_line", None),
-            }
-            for s in steps
-        ],
+        "todo_count": summary["partially_converted"] + summary["manual_required"],
+        "assessment_summary": summary,
+        "transformations": transformations,
         "expression_diffs": [],
         "warnings": [
             {"severity": "warning", "message": w, "location": ""}
